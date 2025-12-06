@@ -15,7 +15,6 @@ class MonthlySummaryViewModel: ObservableObject {
     // Local data
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var categories: [Category] = []
-    @Published private(set) var fixedExpensesList: [FixedExpense] = []
 
     private let transactionRepo = TransactionRepository.shared
     private let categoryRepo = CategoryRepository.shared
@@ -127,8 +126,6 @@ class MonthlySummaryViewModel: ObservableObject {
 
 
 
-    var fixedExpenses: [FixedExpense] = []
-
     var cardSpending: [CreditCardSpending] {
         // Group transactions by credit card
         let cardTransactions = transactions.filter {
@@ -196,8 +193,6 @@ class MonthlySummaryViewModel: ObservableObject {
             categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
         }
-        
-        fixedExpensesList = FixedExpenseRepository.shared.getFixedExpenses(userId: userId)
     }
 
     private func updatePendingCount() {
@@ -268,11 +263,6 @@ class MonthlySummaryViewModel: ObservableObject {
         await syncManager.syncAll()
         loadFromLocal()
         isLoading = false
-    }
-
-    func deleteFixedExpense(_ expense: FixedExpense) {
-        FixedExpenseRepository.shared.deleteFixedExpense(expense)
-        loadFromLocal()
     }
 }
 
