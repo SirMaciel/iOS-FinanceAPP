@@ -9,40 +9,14 @@ struct NewPasswordView: View {
 
     @State private var password = ""
     @State private var confirmPassword = ""
-    @State private var showPassword = false
-    @State private var showConfirmPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showSuccess = false
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.09, blue: 0.14),
-                    Color(red: 0.12, green: 0.13, blue: 0.20)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            // Blur circles background
-            GeometryReader { geo in
-                Circle()
-                    .fill(Color.green.opacity(0.25))
-                    .frame(width: 350, height: 350)
-                    .blur(radius: 100)
-                    .offset(x: geo.size.width / 2 - 175, y: -100)
-
-                Circle()
-                    .fill(Color.teal.opacity(0.25))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 100)
-                    .offset(x: -50, y: geo.size.height - 250)
-            }
-            .ignoresSafeArea()
+            // Background
+            DarkBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -51,62 +25,40 @@ struct NewPasswordView: View {
                     // Icon
                     ZStack {
                         Circle()
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.green.opacity(0.3), Color.teal.opacity(0.3)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 100, height: 100)
-                            .blur(radius: 20)
+                            .fill(AppColors.primaryGradient)
+                            .frame(width: 80, height: 80)
+                            .shadow(color: AppColors.accentBlue.opacity(0.4), radius: 20, y: 10)
 
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 24)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.green, Color.teal],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 80, height: 80)
-                                .shadow(color: .green.opacity(0.4), radius: 20, y: 10)
-
-                            Image(systemName: "lock.rotation")
-                                .font(.system(size: 36))
-                                .foregroundColor(.white)
-                        }
+                        Image(systemName: "lock.rotation")
+                            .font(.system(size: 32))
+                            .foregroundColor(.white)
                     }
                     .padding(.bottom, 32)
 
                     // Title
                     VStack(spacing: 12) {
                         Text("Nova senha")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
+                            .font(.system(size: 28, weight: .bold, design: .rounded))
+                            .foregroundColor(AppColors.textPrimary)
 
                         Text("Crie uma nova senha para sua conta")
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(AppColors.textSecondary)
                     }
                     .padding(.bottom, 40)
 
                     // Password Fields
                     VStack(spacing: 16) {
-                        CustomSecureField(
+                        DarkSecureField(
                             icon: "lock",
                             placeholder: "Nova senha",
-                            text: $password,
-                            showPassword: $showPassword
+                            text: $password
                         )
 
-                        CustomSecureField(
+                        DarkSecureField(
                             icon: "lock.shield",
                             placeholder: "Confirme a nova senha",
-                            text: $confirmPassword,
-                            showPassword: $showConfirmPassword
+                            text: $confirmPassword
                         )
 
                         // Validations
@@ -126,27 +78,14 @@ struct NewPasswordView: View {
                         .padding(.vertical, 4)
 
                         // Reset Button
-                        Button(action: resetPassword) {
-                            HStack(spacing: 8) {
-                                if isLoading {
-                                    ProgressView()
-                                        .tint(.black)
-                                } else {
-                                    Text("Redefinir senha")
-                                        .fontWeight(.semibold)
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 14, weight: .semibold))
-                                }
-                            }
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Color.white)
-                            .cornerRadius(16)
-                            .shadow(color: .white.opacity(0.2), radius: 20, y: 10)
+                        DarkButton(
+                            title: "Redefinir senha",
+                            icon: "checkmark.circle.fill",
+                            isLoading: isLoading,
+                            isDisabled: !isFormValid
+                        ) {
+                            resetPassword()
                         }
-                        .disabled(!isFormValid || isLoading)
-                        .opacity(isFormValid ? 1 : 0.6)
                         .padding(.top, 8)
                     }
                     .padding(.horizontal, 24)
@@ -167,7 +106,7 @@ struct NewPasswordView: View {
                             .font(.system(size: 14, weight: .semibold))
                         Text("Voltar")
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
         }

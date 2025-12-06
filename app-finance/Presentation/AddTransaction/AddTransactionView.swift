@@ -12,7 +12,7 @@ struct AddTransactionView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground(blurColor1: AppColors.blurGreen, blurColor2: AppColors.blurBlue)
+            DarkBackground()
 
             // Content
             VStack(spacing: 0) {

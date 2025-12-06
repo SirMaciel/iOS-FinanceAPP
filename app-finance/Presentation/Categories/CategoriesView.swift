@@ -10,13 +10,13 @@ struct CategoriesView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground(blurColor1: AppColors.blurPurple, blurColor2: AppColors.blurBlue)
+            DarkBackground()
 
             // Content
             VStack(spacing: 0) {
                 // Header com indicador offline e botão editar
                 HStack {
-                    DarkSectionHeader(title: "Suas Categorias", icon: "folder.fill")
+                    DarkSectionHeader(title: "Suas Categorias")
 
                     Spacer()
 

@@ -19,7 +19,7 @@ struct CategoryEditView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground(blurColor1: AppColors.blurPurple, blurColor2: AppColors.blurGreen)
+            DarkBackground()
 
             // Content
             VStack(spacing: 24) {

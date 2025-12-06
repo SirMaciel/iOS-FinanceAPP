@@ -1,34 +1,42 @@
 import SwiftUI
+import UIKit
 
 // MARK: - App Colors
 
 struct AppColors {
-    // Background
-    static let bgPrimary = Color(red: 0.08, green: 0.09, blue: 0.14)
-    static let bgSecondary = Color(red: 0.12, green: 0.13, blue: 0.20)
-
-    // Card
-    static let cardBackground = Color.black.opacity(0.2)
-    static let cardBorder = Color.white.opacity(0.05)
-
+    // Backgrounds - Deep Matte Theme
+    static let bgPrimary = Color(hex: "09090B") ?? .black // Zinc 950
+    static let bgSecondary = Color(hex: "18181B") ?? .black // Zinc 900
+    
+    // Surface / Cards
+    static let cardBackground = Color(hex: "27272A")?.opacity(0.6) ?? .gray.opacity(0.2) // Zinc 800
+    static let cardBorder = Color.white.opacity(0.08)
+    
     // Text
-    static let textPrimary = Color.white
-    static let textSecondary = Color.white.opacity(0.5)
-    static let textTertiary = Color.white.opacity(0.3)
-
-    // Accent
-    static let accentBlue = Color.blue
-    static let accentGreen = Color.green
-    static let accentRed = Color.red
-    static let accentOrange = Color.orange
-    static let accentPurple = Color.purple
-
-    // Blur Circles
-    static let blurBlue = Color.blue.opacity(0.3)
-    static let blurPurple = Color.purple.opacity(0.3)
-    static let blurGreen = Color.green.opacity(0.2)
-
-    // Gradient
+    static let textPrimary = Color(hex: "FAFAFA") ?? .white // Zinc 50
+    static let textSecondary = Color(hex: "A1A1AA") ?? .gray // Zinc 400
+    static let textTertiary = Color(hex: "52525B") ?? .gray // Zinc 600
+    
+    // Accents - Sophisticated, not neon
+    static let accentBlue = Color(hex: "3B82F6") ?? .blue // Blue 500
+    static let accentPurple = Color(hex: "8B5CF6") ?? .purple // Violet 500
+    static let accentGreen = Color(hex: "10B981") ?? .green // Emerald 500
+    static let accentRed = Color(hex: "EF4444") ?? .red // Red 500
+    static let accentOrange = Color(hex: "F97316") ?? .orange // Orange 500
+    
+    // Special
+    static let income = Color(hex: "34D399") ?? .green // Emerald 400
+    static let expense = Color(hex: "F87171") ?? .red // Red 400
+    
+    // Gradients
+    static var primaryGradient: LinearGradient {
+        LinearGradient(
+            colors: [accentBlue, accentPurple],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+    
     static var backgroundGradient: LinearGradient {
         LinearGradient(
             colors: [bgPrimary, bgSecondary],
@@ -38,88 +46,227 @@ struct AppColors {
     }
 }
 
-// MARK: - Dark Background
+// MARK: - Extensions for Hex Colors
 
-struct DarkBackground: View {
-    var showBlurCircles: Bool = true
-    var blurColor1: Color = AppColors.blurBlue
-    var blurColor2: Color = AppColors.blurPurple
+extension Color {
+    init?(hex: String) {
+        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
 
-    var body: some View {
-        ZStack {
-            AppColors.backgroundGradient
-                .ignoresSafeArea()
+        var rgb: UInt64 = 0
+        var a: UInt64 = 255
+        var r: UInt64 = 0
+        var g: UInt64 = 0
+        var b: UInt64 = 0
+        
+        guard Scanner(string: hexSanitized).scanHexInt64(&rgb) else { return nil }
 
-            if showBlurCircles {
-                GeometryReader { geo in
-                    Circle()
-                        .fill(blurColor1)
-                        .frame(width: 400, height: 400)
-                        .blur(radius: 100)
-                        .offset(x: -100, y: -200)
+        let length = hexSanitized.count
+        
+        switch length {
+        case 3: // RGB (12-bit)
+            r = (rgb >> 8) * 17
+            g = (rgb >> 4 & 0xF) * 17
+            b = (rgb & 0xF) * 17
+        case 6: // RGB (24-bit)
+            r = (rgb >> 16)
+            g = (rgb >> 8 & 0xFF)
+            b = (rgb & 0xFF)
+        case 8: // ARGB (32-bit)
+            a = (rgb >> 24)
+            r = (rgb >> 16 & 0xFF)
+            g = (rgb >> 8 & 0xFF)
+            b = (rgb & 0xFF)
+        default:
+            return nil
+        }
+        
+        self.init(
+            .sRGB,
+            red: Double(r) / 255,
+            green: Double(g) / 255,
+            blue: Double(b) / 255,
+            opacity: Double(a) / 255
+        )
+    }
 
-                    Circle()
-                        .fill(blurColor2)
-                        .frame(width: 350, height: 350)
-                        .blur(radius: 100)
-                        .offset(x: geo.size.width - 150, y: geo.size.height - 200)
-                }
-                .ignoresSafeArea()
-            }
+    func toHex() -> String? {
+        let uic = UIColor(self)
+        guard let components = uic.cgColor.components, components.count >= 3 else {
+            return nil
+        }
+        let r = Float(components[0])
+        let g = Float(components[1])
+        let b = Float(components[2])
+        var a = Float(1.0)
+
+        if components.count >= 4 {
+            a = Float(components[3])
+        }
+
+        if a != 1.0 {
+            return String(format: "%02lX%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255), lroundf(a * 255))
+        } else {
+            return String(format: "%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255))
         }
     }
 }
 
-// MARK: - Dark Card
+// MARK: - Components
+
+struct DarkBackground: View {
+    var body: some View {
+        ZStack {
+            AppColors.bgPrimary
+                .ignoresSafeArea()
+            
+            // Subtle ambient gradient top-left
+            GeometryReader { proxy in
+                Circle()
+                    .fill(AppColors.accentBlue.opacity(0.1))
+                    .frame(width: proxy.size.width * 1.2)
+                    .blur(radius: 120)
+                    .offset(x: -proxy.size.width * 0.5, y: -proxy.size.height * 0.2)
+                
+                // Subtle ambient gradient bottom-right
+                Circle()
+                    .fill(AppColors.accentPurple.opacity(0.05))
+                    .frame(width: proxy.size.width)
+                    .blur(radius: 100)
+                    .offset(x: proxy.size.width * 0.4, y: proxy.size.height * 0.6)
+            }
+            .ignoresSafeArea()
+        }
+    }
+}
 
 struct DarkCard<Content: View>: View {
     let content: Content
-    var padding: CGFloat = 16
-
-    init(padding: CGFloat = 16, @ViewBuilder content: () -> Content) {
+    var padding: CGFloat
+    var corners: CGFloat
+    
+    init(padding: CGFloat = 20, corners: CGFloat = 24, @ViewBuilder content: () -> Content) {
         self.padding = padding
+        self.corners = corners
         self.content = content()
     }
-
+    
     var body: some View {
         content
             .padding(padding)
             .background(AppColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: corners, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: corners, style: .continuous)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
             )
-            .cornerRadius(16)
     }
 }
 
-// MARK: - Dark Section Header
-
 struct DarkSectionHeader: View {
     let title: String
-    var icon: String? = nil
-
+    var actionText: String? = nil
+    var action: (() -> Void)? = nil
+    
     var body: some View {
-        HStack(spacing: 8) {
-            if let icon = icon {
-                Image(systemName: icon)
-                    .font(.subheadline)
-                    .foregroundColor(AppColors.textSecondary)
-            }
-
+        HStack {
             Text(title)
-                .font(.subheadline)
-                .fontWeight(.semibold)
-                .foregroundColor(AppColors.textSecondary)
-
+                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.textPrimary)
+            
             Spacer()
+            
+            if let actionText = actionText, let action = action {
+                Button(action: action) {
+                    Text(actionText)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppColors.accentBlue)
+                }
+            }
         }
         .padding(.horizontal, 4)
         .padding(.vertical, 8)
     }
 }
 
-// MARK: - Dark Text Field
+struct DarkButton: View {
+    let title: String
+    var icon: String? = nil
+    var style: ButtonStyle = .primary
+    var isLoading: Bool = false
+    var isDisabled: Bool = false
+    var action: () -> Void
+    
+    enum ButtonStyle {
+        case primary
+        case secondary
+        case danger
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                if isLoading {
+                    ProgressView()
+                        .tint(style == .primary ? .white : AppColors.textPrimary)
+                } else {
+                    if let icon = icon {
+                        Image(systemName: icon)
+                            .font(.system(size: 16, weight: .semibold))
+                    }
+                    Text(title)
+                        .font(.system(size: 16, weight: .semibold, design: .rounded))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .background(backgroundView)
+            .foregroundColor(foregroundColor)
+            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(borderColor, lineWidth: 1)
+            )
+            .shadow(color: shadowColor, radius: style == .primary ? 8 : 0, y: 4)
+        }
+        .disabled(isLoading || isDisabled)
+        .opacity(isDisabled ? 0.6 : 1.0)
+    }
+    
+    @ViewBuilder
+    private var backgroundView: some View {
+        switch style {
+        case .primary:
+            AppColors.primaryGradient
+        case .secondary:
+            Color.white.opacity(0.05)
+        case .danger:
+            AppColors.accentRed.opacity(0.1)
+        }
+    }
+    
+    private var foregroundColor: Color {
+        switch style {
+        case .primary: return .white
+        case .secondary: return .white
+        case .danger: return AppColors.accentRed
+        }
+    }
+    
+    private var borderColor: Color {
+        switch style {
+        case .secondary: return Color.white.opacity(0.1)
+        default: return .clear
+        }
+    }
+    
+    private var shadowColor: Color {
+        switch style {
+        case .primary: return AppColors.accentBlue.opacity(0.3)
+        default: return .clear
+        }
+    }
+}
 
 struct DarkTextField: View {
     let icon: String
@@ -131,113 +278,59 @@ struct DarkTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .font(.system(size: 18))
-                .foregroundColor(AppColors.textSecondary)
-                .frame(width: 24)
+                .foregroundColor(AppColors.textTertiary)
+                .frame(width: 20)
 
-            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(AppColors.textTertiary))
+            TextField(placeholder, text: $text)
                 .foregroundColor(AppColors.textPrimary)
                 .keyboardType(keyboardType)
                 .textInputAutocapitalization(autocapitalization)
-                .autocorrectionDisabled()
+                .placeholder(when: text.isEmpty) {
+                    Text(placeholder).foregroundColor(AppColors.textTertiary)
+                }
         }
-        .padding(.horizontal, 16)
+        .padding()
         .frame(height: 56)
-        .background(AppColors.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(16)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
-// MARK: - Dark Button
-
-struct DarkButton: View {
-    let title: String
-    var icon: String? = nil
-    var style: ButtonStyle = .primary
-    var isLoading: Bool = false
-    var isDisabled: Bool = false
-    let action: () -> Void
-
-    enum ButtonStyle {
-        case primary
-        case secondary
-        case danger
-    }
+struct DarkSecureField: View {
+    let icon: String
+    let placeholder: String
+    @Binding var text: String
+    @State private var isVisible: Bool = false
 
     var body: some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                if isLoading {
-                    ProgressView()
-                        .tint(style == .primary ? .black : .white)
-                } else {
-                    if let icon = icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 16, weight: .semibold))
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .foregroundColor(AppColors.textTertiary)
+                .frame(width: 20)
+
+            if isVisible {
+                TextField(placeholder, text: $text)
+                    .foregroundColor(AppColors.textPrimary)
+                    .placeholder(when: text.isEmpty) {
+                        Text(placeholder).foregroundColor(AppColors.textTertiary)
                     }
-                    Text(title)
-                        .fontWeight(.semibold)
-                }
+            } else {
+                SecureField(placeholder, text: $text)
+                    .foregroundColor(AppColors.textPrimary)
+                    .placeholder(when: text.isEmpty) {
+                        Text(placeholder).foregroundColor(AppColors.textTertiary)
+                    }
             }
-            .foregroundColor(foregroundColor)
-            .frame(maxWidth: .infinity)
-            .frame(height: 56)
-            .background(backgroundColor)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(borderColor, lineWidth: style == .secondary ? 1 : 0)
-            )
-            .shadow(color: shadowColor, radius: 20, y: 10)
+            
+            Button(action: { isVisible.toggle() }) {
+                Image(systemName: isVisible ? "eye.slash" : "eye")
+                    .foregroundColor(AppColors.textTertiary)
+            }
         }
-        .disabled(isDisabled || isLoading)
-        .opacity(isDisabled ? 0.6 : 1)
-    }
-
-    private var foregroundColor: Color {
-        switch style {
-        case .primary:
-            return .black
-        case .secondary:
-            return .white
-        case .danger:
-            return .white
-        }
-    }
-
-    private var backgroundColor: Color {
-        switch style {
-        case .primary:
-            return .white
-        case .secondary:
-            return AppColors.cardBackground
-        case .danger:
-            return Color.red.opacity(0.8)
-        }
-    }
-
-    private var borderColor: Color {
-        switch style {
-        case .secondary:
-            return AppColors.cardBorder
-        default:
-            return .clear
-        }
-    }
-
-    private var shadowColor: Color {
-        switch style {
-        case .primary:
-            return .white.opacity(0.2)
-        case .danger:
-            return .red.opacity(0.3)
-        default:
-            return .clear
-        }
+        .padding()
+        .frame(height: 56)
+        .background(Color.white.opacity(0.05))
+        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
@@ -344,36 +437,34 @@ struct DarkLoadingOverlay: View {
     }
 }
 
-// MARK: - Preview
+extension View {
+    func placeholder<Content: View>(
+        when shouldShow: Bool,
+        alignment: Alignment = .leading,
+        @ViewBuilder placeholder: () -> Content) -> some View {
+
+        ZStack(alignment: alignment) {
+            placeholder().opacity(shouldShow ? 1 : 0)
+            self
+        }
+    }
+}
 
 #Preview {
     ZStack {
         DarkBackground()
-
-        ScrollView {
-            VStack(spacing: 20) {
-                DarkSectionHeader(title: "Exemplo de Seção", icon: "star.fill")
-
-                DarkCard {
-                    Text("Conteúdo do card")
-                        .foregroundColor(.white)
-                }
-
-                DarkTextField(icon: "envelope", placeholder: "Email", text: .constant(""))
-
-                DarkButton(title: "Botão Primário", icon: "arrow.right") {}
-
-                DarkButton(title: "Botão Secundário", style: .secondary) {}
-
-                DarkButton(title: "Sair", icon: "rectangle.portrait.and.arrow.right", style: .danger) {}
-
-                DarkEmptyState(
-                    icon: "tray",
-                    title: "Nenhum item",
-                    subtitle: "Adicione seu primeiro item para começar"
-                )
+        VStack(spacing: 20) {
+            DarkSectionHeader(title: "Overview", actionText: "See All", action: {})
+            
+            DarkCard {
+                Text("This is a sophisticated card")
+                    .foregroundColor(AppColors.textPrimary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .padding()
+            
+            DarkButton(title: "Primary Action", icon: "star.fill", action: {})
+            DarkButton(title: "Secondary Action", style: .secondary, action: {})
         }
+        .padding()
     }
 }

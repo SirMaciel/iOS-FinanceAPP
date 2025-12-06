@@ -20,32 +20,8 @@ struct ForgotPasswordView: View {
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.09, blue: 0.14),
-                    Color(red: 0.12, green: 0.13, blue: 0.20)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            // Blur circles background
-            GeometryReader { geo in
-                Circle()
-                    .fill(Color.orange.opacity(0.25))
-                    .frame(width: 350, height: 350)
-                    .blur(radius: 100)
-                    .offset(x: geo.size.width / 2 - 175, y: -100)
-
-                Circle()
-                    .fill(Color.purple.opacity(0.25))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 100)
-                    .offset(x: -50, y: geo.size.height - 250)
-            }
-            .ignoresSafeArea()
+            // Background
+            DarkBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -53,45 +29,25 @@ struct ForgotPasswordView: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.orange.opacity(0.3), Color.purple.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 100, height: 100)
-                        .blur(radius: 20)
+                        .fill(AppColors.primaryGradient)
+                        .frame(width: 80, height: 80)
+                        .shadow(color: AppColors.accentBlue.opacity(0.4), radius: 20, y: 10)
 
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.orange, Color.pink],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 80, height: 80)
-                            .shadow(color: .orange.opacity(0.4), radius: 20, y: 10)
-
-                        Image(systemName: "key.fill")
-                            .font(.system(size: 36))
-                            .foregroundColor(.white)
-                    }
+                    Image(systemName: "key.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white)
                 }
                 .padding(.bottom, 32)
-
+                
                 // Title
                 VStack(spacing: 12) {
                     Text("Recuperar senha")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.textPrimary)
 
                     Text("Digite seu email para receber um link de recuperação")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppColors.textSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -106,11 +62,11 @@ struct ForgotPasswordView: View {
                             Text("Digite seu email cadastrado")
                                 .font(.caption)
                         }
-                        .foregroundColor(.blue.opacity(0.8))
+                        .foregroundColor(AppColors.accentBlue)
                         .padding(.horizontal, 4)
                     }
 
-                    CustomTextField(
+                    DarkTextField(
                         icon: "envelope",
                         placeholder: "Seu e-mail",
                         text: $email,
@@ -120,38 +76,25 @@ struct ForgotPasswordView: View {
                     if let error = errorMessage {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 14))
                             Text(error)
                                 .font(.caption)
                         }
-                        .foregroundColor(.red.opacity(0.8))
+                        .foregroundColor(AppColors.accentRed)
                         .padding(.top, 4)
                     }
                 }
                 .padding(.horizontal, 24)
 
                 // Send Button
-                Button(action: sendResetEmail) {
-                    HStack(spacing: 8) {
-                        if isLoading {
-                            ProgressView()
-                                .tint(.black)
-                        } else {
-                            Text("Enviar link")
-                                .fontWeight(.semibold)
-                            Image(systemName: "paperplane.fill")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                    }
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: .white.opacity(0.2), radius: 20, y: 10)
+                DarkButton(
+                    title: "Enviar link",
+                    icon: "paperplane.fill",
+                    isLoading: isLoading,
+                    isDisabled: !isEmailValid
+                ) {
+                    sendResetEmail()
                 }
-                .disabled(!isEmailValid || isLoading)
-                .opacity(isEmailValid ? 1 : 0.6)
                 .padding(.horizontal, 24)
                 .padding(.top, 24)
 
@@ -165,7 +108,7 @@ struct ForgotPasswordView: View {
                         Text("Voltar para login")
                     }
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(.bottom, 40)
             }
@@ -181,7 +124,7 @@ struct ForgotPasswordView: View {
                             .font(.system(size: 14, weight: .semibold))
                         Text("Voltar")
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
         }

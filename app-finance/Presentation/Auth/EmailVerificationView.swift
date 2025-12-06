@@ -16,32 +16,8 @@ struct EmailVerificationView: View {
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.09, blue: 0.14),
-                    Color(red: 0.12, green: 0.13, blue: 0.20)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            // Blur circles background
-            GeometryReader { geo in
-                Circle()
-                    .fill(Color.green.opacity(0.25))
-                    .frame(width: 350, height: 350)
-                    .blur(radius: 100)
-                    .offset(x: geo.size.width / 2 - 175, y: -100)
-
-                Circle()
-                    .fill(Color.blue.opacity(0.25))
-                    .frame(width: 300, height: 300)
-                    .blur(radius: 100)
-                    .offset(x: -50, y: geo.size.height - 250)
-            }
-            .ignoresSafeArea()
+            // Background
+            DarkBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -49,92 +25,58 @@ struct EmailVerificationView: View {
                 // Icon
                 ZStack {
                     Circle()
-                        .fill(
-                            LinearGradient(
-                                colors: [Color.green.opacity(0.3), Color.blue.opacity(0.3)],
-                                startPoint: .topLeading,
-                                endPoint: .bottomTrailing
-                            )
-                        )
-                        .frame(width: 100, height: 100)
-                        .blur(radius: 20)
+                        .fill(AppColors.primaryGradient)
+                        .frame(width: 80, height: 80)
+                        .shadow(color: AppColors.accentBlue.opacity(0.4), radius: 20, y: 10)
 
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 24)
-                            .fill(
-                                LinearGradient(
-                                    colors: [Color.green, Color.teal],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                            .frame(width: 80, height: 80)
-                            .shadow(color: .green.opacity(0.4), radius: 20, y: 10)
-
-                        Image(systemName: "envelope.badge")
-                            .font(.system(size: 36))
-                            .foregroundColor(.white)
-                    }
+                    Image(systemName: "envelope.badge")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white)
                 }
                 .padding(.bottom, 32)
 
                 // Title
                 VStack(spacing: 12) {
                     Text("Verifique seu email")
-                        .font(.title)
-                        .fontWeight(.bold)
-                        .foregroundColor(.white)
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.textPrimary)
 
                     Text("Enviamos um código de 6 dígitos para")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppColors.textSecondary)
 
                     Text(email)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppColors.accentBlue)
                 }
                 .padding(.bottom, 40)
 
                 // Code Input
                 VStack(spacing: 20) {
-                    DarkCodeInputView(code: $code)
-                        .focused($isCodeFocused)
+                    DarkCodeInputView(code: $code, isCodeFocused: $isCodeFocused)
 
                     if let error = errorMessage {
                         HStack(spacing: 6) {
                             Image(systemName: "exclamationmark.circle.fill")
-                                .font(.system(size: 12))
+                                .font(.system(size: 14))
                             Text(error)
                                 .font(.caption)
                         }
-                        .foregroundColor(.red.opacity(0.8))
+                        .foregroundColor(AppColors.accentRed)
                     }
                 }
                 .padding(.horizontal, 24)
 
                 // Verify Button
-                Button(action: verify) {
-                    HStack(spacing: 8) {
-                        if isLoading {
-                            ProgressView()
-                                .tint(.black)
-                        } else {
-                            Text("Verificar")
-                                .fontWeight(.semibold)
-                            Image(systemName: "checkmark")
-                                .font(.system(size: 14, weight: .semibold))
-                        }
-                    }
-                    .foregroundColor(.black)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 56)
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .shadow(color: .white.opacity(0.2), radius: 20, y: 10)
+                DarkButton(
+                    title: "Verificar",
+                    icon: "checkmark",
+                    isLoading: isLoading,
+                    isDisabled: code.count != 6
+                ) {
+                    verify()
                 }
-                .disabled(code.count != 6 || isLoading)
-                .opacity(code.count == 6 ? 1 : 0.6)
                 .padding(.horizontal, 24)
                 .padding(.top, 32)
 
@@ -142,19 +84,19 @@ struct EmailVerificationView: View {
                 VStack(spacing: 8) {
                     Text("Não recebeu o código?")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.5))
+                        .foregroundColor(AppColors.textSecondary)
 
                     if resendCooldown > 0 {
                         Text("Reenviar em \(resendCooldown)s")
                             .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.3))
+                            .foregroundColor(AppColors.textTertiary)
                     } else {
                         Button("Reenviar código") {
                             resendCode()
                         }
                         .font(.subheadline)
                         .fontWeight(.semibold)
-                        .foregroundColor(.blue)
+                        .foregroundColor(AppColors.accentBlue)
                     }
                 }
                 .padding(.top, 24)
@@ -169,7 +111,7 @@ struct EmailVerificationView: View {
                         Text("Usar outro email")
                     }
                     .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.5))
+                    .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(.bottom, 40)
             }
@@ -185,7 +127,7 @@ struct EmailVerificationView: View {
                             .font(.system(size: 14, weight: .semibold))
                         Text("Voltar")
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
         }
@@ -246,14 +188,16 @@ struct EmailVerificationView: View {
 
 struct DarkCodeInputView: View {
     @Binding var code: String
+    var isCodeFocused: FocusState<Bool>.Binding
+    
     let codeLength = 6
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             ForEach(0..<codeLength, id: \.self) { index in
                 DarkCodeDigitBox(
                     digit: digit(at: index),
-                    isFocused: index == code.count
+                    isFocused: index == code.count || (index == codeLength - 1 && code.count == codeLength)
                 )
             }
         }
@@ -261,6 +205,7 @@ struct DarkCodeInputView: View {
             TextField("", text: $code)
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
+                .focused(isCodeFocused)
                 .opacity(0.01)
                 .onChange(of: code) { _, newValue in
                     code = String(newValue.filter { $0.isNumber }.prefix(codeLength))
@@ -280,28 +225,28 @@ struct DarkCodeDigitBox: View {
 
     var body: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 14)
-                .fill(Color.black.opacity(0.3))
+            RoundedRectangle(cornerRadius: 16)
+                .fill(AppColors.cardBackground)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 14)
+                    RoundedRectangle(cornerRadius: 16)
                         .stroke(
-                            isFocused ? Color.blue.opacity(0.6) : Color.white.opacity(0.1),
+                            isFocused ? AppColors.accentBlue.opacity(0.8) : AppColors.cardBorder,
                             lineWidth: isFocused ? 2 : 1
                         )
                 )
 
             if digit.isEmpty && isFocused {
                 RoundedRectangle(cornerRadius: 1)
-                    .fill(Color.blue)
+                    .fill(AppColors.accentBlue)
                     .frame(width: 2, height: 24)
             } else {
                 Text(digit)
-                    .font(.title)
+                    .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.white)
+                    .foregroundColor(AppColors.textPrimary)
             }
         }
-        .frame(width: 50, height: 60)
+        .frame(width: 48, height: 60)
     }
 }
 

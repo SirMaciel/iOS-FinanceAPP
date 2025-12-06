@@ -8,8 +8,6 @@ struct RegisterView: View {
     @State private var email = ""
     @State private var password = ""
     @State private var confirmPassword = ""
-    @State private var showPassword = false
-    @State private var showConfirmPassword = false
     @State private var isLoading = false
     @State private var errorMessage: String?
     @State private var showingVerification = false
@@ -17,102 +15,66 @@ struct RegisterView: View {
 
     var body: some View {
         ZStack {
-            // Background gradient
-            LinearGradient(
-                colors: [
-                    Color(red: 0.08, green: 0.09, blue: 0.14),
-                    Color(red: 0.12, green: 0.13, blue: 0.20)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
-
-            // Blur circles background
-            GeometryReader { geo in
-                Circle()
-                    .fill(Color.purple.opacity(0.3))
-                    .frame(width: 400, height: 400)
-                    .blur(radius: 100)
-                    .offset(x: geo.size.width - 200, y: -150)
-
-                Circle()
-                    .fill(Color.blue.opacity(0.3))
-                    .frame(width: 350, height: 350)
-                    .blur(radius: 100)
-                    .offset(x: -100, y: geo.size.height - 300)
-            }
-            .ignoresSafeArea()
+            // Background
+            DarkBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
                     // Header
-                    VStack(spacing: 16) {
-                        // App Icon
+                    VStack(spacing: 24) {
+                        // Logo
                         ZStack {
-                            RoundedRectangle(cornerRadius: 20)
-                                .fill(
-                                    LinearGradient(
-                                        colors: [Color.purple, Color.blue],
-                                        startPoint: .topLeading,
-                                        endPoint: .bottomTrailing
-                                    )
-                                )
-                                .frame(width: 72, height: 72)
-                                .rotationEffect(.degrees(-6))
-                                .shadow(color: .blue.opacity(0.4), radius: 20, y: 10)
+                            Circle()
+                                .fill(AppColors.primaryGradient)
+                                .frame(width: 80, height: 80)
+                                .shadow(color: AppColors.accentPurple.opacity(0.4), radius: 20, y: 10)
 
-                            Text("$")
+                            Image(systemName: "person.badge.plus")
                                 .font(.system(size: 36, weight: .bold))
                                 .foregroundColor(.white)
                         }
                         .padding(.top, 40)
+                        
+                        VStack(spacing: 8) {
+                            Text("Comece sua jornada")
+                                .font(.system(size: 28, weight: .bold, design: .rounded))
+                                .foregroundColor(AppColors.textPrimary)
 
-                        Text("Comece sua jornada")
-                            .font(.title)
-                            .fontWeight(.bold)
-                            .foregroundColor(.white)
-
-                        Text("Crie sua conta em segundos.")
-                            .font(.subheadline)
-                            .foregroundColor(.white.opacity(0.5))
+                            Text("Crie sua conta em segundos.")
+                                .font(.subheadline)
+                                .foregroundColor(AppColors.textSecondary)
+                        }
                     }
                     .padding(.bottom, 32)
 
                     // Form
                     VStack(spacing: 16) {
-                        // Nome completo
-                        CustomTextField(
+                        DarkTextField(
                             icon: "person",
                             placeholder: "Nome completo",
                             text: $name
                         )
 
-                        // Email
-                        CustomTextField(
+                        DarkTextField(
                             icon: "envelope",
                             placeholder: "Seu e-mail",
                             text: $email,
                             keyboardType: .emailAddress
                         )
 
-                        // Senha
-                        CustomSecureField(
+                        DarkSecureField(
                             icon: "lock",
                             placeholder: "Sua senha",
-                            text: $password,
-                            showPassword: $showPassword
+                            text: $password
                         )
 
-                        // Confirmar senha
-                        CustomSecureField(
+                        DarkSecureField(
                             icon: "lock.shield",
                             placeholder: "Confirme sua senha",
-                            text: $confirmPassword,
-                            showPassword: $showConfirmPassword
+                            text: $confirmPassword
                         )
 
-                        // Validações
+                        // Validations
                         VStack(alignment: .leading, spacing: 8) {
                             if !password.isEmpty && password.count < 6 {
                                 ValidationBadge(text: "Mínimo 6 caracteres", isValid: false)
@@ -128,36 +90,22 @@ struct RegisterView: View {
                         }
                         .padding(.vertical, 4)
 
-                        // Botão Criar Conta
-                        Button(action: register) {
-                            HStack(spacing: 8) {
-                                if isLoading {
-                                    ProgressView()
-                                        .tint(.black)
-                                } else {
-                                    Text("Criar Conta")
-                                        .fontWeight(.semibold)
-                                    Image(systemName: "arrow.right")
-                                        .font(.system(size: 14, weight: .semibold))
-                                }
-                            }
-                            .foregroundColor(.black)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Color.white)
-                            .cornerRadius(16)
-                            .shadow(color: .white.opacity(0.2), radius: 20, y: 10)
+                        DarkButton(
+                            title: "Criar Conta",
+                            icon: "arrow.right",
+                            isLoading: isLoading,
+                            isDisabled: !isFormValid
+                        ) {
+                            register()
                         }
-                        .disabled(!isFormValid || isLoading)
-                        .opacity(isFormValid ? 1 : 0.6)
                         .padding(.top, 8)
                     }
                     .padding(.horizontal, 24)
 
-                    // Termos
+                    // Terms
                     Text("Ao criar uma conta, você concorda com nossos Termos de Uso e Política de Privacidade")
                         .font(.caption)
-                        .foregroundColor(.white.opacity(0.4))
+                        .foregroundColor(AppColors.textTertiary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 40)
                         .padding(.top, 24)
@@ -165,12 +113,12 @@ struct RegisterView: View {
                     // Back to login
                     HStack(spacing: 4) {
                         Text("Já tem uma conta?")
-                            .foregroundColor(.white.opacity(0.5))
+                            .foregroundColor(AppColors.textSecondary)
                         Button("Entrar") {
                             dismiss()
                         }
                         .fontWeight(.semibold)
-                        .foregroundColor(.white)
+                        .foregroundColor(AppColors.accentBlue)
                     }
                     .font(.subheadline)
                     .padding(.top, 24)
@@ -190,7 +138,7 @@ struct RegisterView: View {
                             .font(.system(size: 14, weight: .semibold))
                         Text("Voltar")
                     }
-                    .foregroundColor(.white.opacity(0.8))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
         }
@@ -244,13 +192,6 @@ struct ValidationBadge: View {
             Text(text)
                 .font(.caption)
         }
-        .foregroundColor(isValid ? .green : .red.opacity(0.8))
-    }
-}
-
-#Preview {
-    NavigationStack {
-        RegisterView()
-            .environmentObject(AuthManager())
+        .foregroundColor(isValid ? AppColors.accentGreen : AppColors.accentRed)
     }
 }

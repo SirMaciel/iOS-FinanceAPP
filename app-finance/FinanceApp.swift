@@ -146,25 +146,31 @@ struct RootView: View {
 struct MainTabView: View {
     @EnvironmentObject var authManager: AuthManager
     @State private var showingProfile = false
+    @State private var selectedTab = 0
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header com perfil e notificação
-            ProfileHeader(onProfileTap: { showingProfile = true })
+            // Header com perfil e notificação (apenas na aba Resumo)
+            if selectedTab == 0 {
+                ProfileHeader(onProfileTap: { showingProfile = true })
+            }
 
             // Tab content
-            TabView {
+            TabView(selection: $selectedTab) {
                 MonthlySummaryView()
+                    .tag(0)
                     .tabItem {
                         Label("Resumo", systemImage: "chart.pie.fill")
                     }
 
                 CreditCardView()
+                    .tag(1)
                     .tabItem {
                         Label("Cartões", systemImage: "creditcard.fill")
                     }
 
                 CategoriesView()
+                    .tag(2)
                     .tabItem {
                         Label("Categorias", systemImage: "folder.fill")
                     }
@@ -281,12 +287,12 @@ struct CreditCardView: View {
 
     var body: some View {
         ZStack {
-            DarkBackground(blurColor1: AppColors.blurBlue, blurColor2: AppColors.blurPurple)
+            DarkBackground()
 
             VStack(spacing: 0) {
                 // Header
                 HStack {
-                    DarkSectionHeader(title: "Seus Cartões", icon: "creditcard.fill")
+                    DarkSectionHeader(title: "Seus Cartões")
 
                     Spacer()
 
@@ -412,7 +418,7 @@ struct CreditCardDetailView: View {
 
     var body: some View {
         ZStack {
-            DarkBackground(blurColor1: AppColors.blurBlue, blurColor2: AppColors.blurPurple)
+            DarkBackground()
 
             VStack(spacing: 24) {
                 // Header
@@ -520,7 +526,7 @@ struct ProfileView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground(blurColor1: AppColors.blurPurple, blurColor2: AppColors.blurGreen)
+            DarkBackground()
 
             ScrollView {
                 VStack(spacing: 24) {
@@ -572,7 +578,7 @@ struct ProfileView: View {
 
                     // Seção Configurações
                     VStack(alignment: .leading, spacing: 12) {
-                        DarkSectionHeader(title: "Configurações", icon: "gearshape.fill")
+                        DarkSectionHeader(title: "Configurações")
 
                         VStack(spacing: 8) {
                             SettingsCard(
@@ -600,7 +606,7 @@ struct ProfileView: View {
 
                     // Seção Sobre
                     VStack(alignment: .leading, spacing: 12) {
-                        DarkSectionHeader(title: "Sobre", icon: "info.circle.fill")
+                        DarkSectionHeader(title: "Sobre")
 
                         HStack(spacing: 16) {
                             ZStack {

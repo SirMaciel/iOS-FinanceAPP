@@ -10,38 +10,33 @@ struct SummaryCard: View {
     var icon: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                if let icon = icon {
-                    ZStack {
-                        Circle()
-                            .fill(color.opacity(0.2))
-                            .frame(width: 32, height: 32)
-
+        DarkCard(padding: 16, corners: 20) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    if let icon = icon {
                         Image(systemName: icon)
-                            .font(.system(size: 14))
+                            .font(.system(size: 16))
                             .foregroundColor(color)
+                            .padding(8)
+                            .background(color.opacity(0.1))
+                            .clipShape(Circle())
                     }
+                    
+                    Spacer()
                 }
-
-                Text(title)
-                    .font(.caption)
-                    .fontWeight(.medium)
-                    .foregroundColor(AppColors.textSecondary)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(AppColors.textSecondary)
+                    
+                    Text(value)
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.textPrimary)
+                        .minimumScaleFactor(0.8)
+                }
             }
-
-            Text(value)
-                .font(.system(size: 18, weight: .bold))
-                .foregroundColor(color)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .background(AppColors.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(16)
     }
 }
 
@@ -51,65 +46,51 @@ struct TransactionRowCard: View {
     let transaction: TransactionItemViewModel
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Barra lateral com cor da categoria
-            RoundedRectangle(cornerRadius: 4)
-                .fill(transaction.categoryColor)
-                .frame(width: 4, height: 50)
-                .shadow(color: transaction.categoryColor.opacity(0.5), radius: 4, x: 0, y: 0)
-
-            // Conteúdo
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 16) {
+            // Icon Container
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(transaction.categoryColor.opacity(0.15))
+                    .frame(width: 44, height: 44)
+                
+                Image(systemName: "tag.fill") // Placeholder icon, ideally category.iconName
+                    .font(.system(size: 16))
+                    .foregroundColor(transaction.categoryColor)
+            }
+            
+            // Content
+            VStack(alignment: .leading, spacing: 4) {
                 Text(transaction.description)
-                    .font(.body)
-                    .fontWeight(.medium)
+                    .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
-
-                HStack(spacing: 6) {
+                
+                HStack(spacing: 4) {
+                    Text(transaction.categoryName ?? "Sem categoria")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                    
+                    Text("•")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                    
                     Text(transaction.dateFormatted)
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
-
-                    if let categoryName = transaction.categoryName {
-                        Circle()
-                            .fill(AppColors.textTertiary)
-                            .frame(width: 3, height: 3)
-
-                        Text(categoryName)
-                            .font(.caption)
-                            .foregroundColor(AppColors.textSecondary)
-                    }
-
-                    if transaction.needsUserReview {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundColor(AppColors.accentOrange)
-                    }
-
-                    if transaction.isPendingSync {
-                        Image(systemName: "arrow.triangle.2.circlepath")
-                            .font(.caption)
-                            .foregroundColor(AppColors.textTertiary)
-                    }
                 }
             }
-
+            
             Spacer()
-
-            // Valor
+            
+            // Amount
             Text(transaction.amountFormatted)
-                .font(.body)
-                .fontWeight(.bold)
-                .foregroundColor(transaction.type == .expense ? AppColors.accentRed : AppColors.accentGreen)
+                .font(.system(size: 16, weight: .bold, design: .rounded))
+                .foregroundColor(transaction.type == .expense ? AppColors.textPrimary : AppColors.income)
         }
-        .padding(12)
-        .background(AppColors.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(12)
+        .padding(.vertical, 8)
+        .padding(.horizontal, 4)
+        .background(Color.white.opacity(0.001)) // Tappable area
+        .contentShape(Rectangle())
     }
 }
 
@@ -127,7 +108,7 @@ struct CategoryCard: View {
                     Circle()
                         .fill(Color(hex: category.colorHex) ?? .gray)
                         .frame(width: 44, height: 44)
-                        .shadow(color: (Color(hex: category.colorHex) ?? .gray).opacity(0.4), radius: 8, x: 0, y: 4)
+                        .shadow(color: (Color(hex: category.colorHex) ?? .gray).opacity(0.3), radius: 8, x: 0, y: 4)
 
                     Image(systemName: category.iconName)
                         .font(.system(size: 18))
@@ -163,11 +144,11 @@ struct CategoryCard: View {
             }
             .padding(16)
             .background(AppColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
             )
-            .cornerRadius(16)
             .opacity(category.isActive ? 1.0 : 0.6)
         }
         .buttonStyle(PlainButtonStyle())
@@ -188,8 +169,8 @@ struct SettingsCard: View {
         Button(action: { action?() }) {
             HStack(spacing: 16) {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(iconColor.opacity(0.15))
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(iconColor.opacity(0.1))
                         .frame(width: 40, height: 40)
 
                     Image(systemName: icon)
@@ -220,11 +201,11 @@ struct SettingsCard: View {
             }
             .padding(16)
             .background(AppColors.cardBackground)
+            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
             .overlay(
-                RoundedRectangle(cornerRadius: 16)
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
             )
-            .cornerRadius(16)
         }
         .buttonStyle(PlainButtonStyle())
     }

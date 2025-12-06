@@ -59,7 +59,7 @@ struct AddCreditCardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DarkBackground(blurColor1: AppColors.blurBlue, blurColor2: AppColors.blurPurple)
+                DarkBackground()
 
                 VStack(spacing: 0) {
                     header

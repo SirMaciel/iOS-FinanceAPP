@@ -11,44 +11,37 @@ struct MonthlySummaryView: View {
 
             // Content
             ScrollView {
-                VStack(spacing: 20) {
-                    // Cabeçalho de mês
-                    monthHeader
+                VStack(spacing: 24) {
+                    // Header Section
+                    headerView
+                    
+                    // Dashboard Widgets (Summary Cards)
+                    summaryCardsSection
 
-                    // Cards de resumo
-                    summaryCards
-
-                    // Gastos do Cartão
+                    // Credit Card Spending
                     if !viewModel.cardSpending.isEmpty {
                         CardSpendingCarousel(cardSpendings: viewModel.cardSpending)
                     }
 
-                    // Gráfico de pizza
+                    // Analytics / Charts
                     if !viewModel.pieData.isEmpty {
-                        PieChartView(
-                            data: viewModel.pieData,
-                            selectedCategoryId: viewModel.selectedCategoryId,
-                            onTap: { categoryId in
-                                let generator = UIImpactFeedbackGenerator(style: .light)
-                                generator.impactOccurred()
-                                viewModel.selectCategory(categoryId)
-                            }
-                        )
+                        VStack(alignment: .leading, spacing: 16) {
+                            DarkSectionHeader(title: "Gastos por Categoria")
+                            
+                            PieChartView(
+                                data: viewModel.pieData,
+                                selectedCategoryId: viewModel.selectedCategoryId,
+                                onTap: { categoryId in
+                                    let generator = UIImpactFeedbackGenerator(style: .light)
+                                    generator.impactOccurred()
+                                    viewModel.selectCategory(categoryId)
+                                }
+                            )
+                        }
                     }
 
-                    // Lista de transações
-                    TransactionListView(
-                        transactions: viewModel.filteredTransactions,
-                        selectedCategoryInfo: viewModel.selectedCategoryInfo,
-                        onClearFilter: {
-                            viewModel.clearFilter()
-                        },
-                        onDelete: { transactionId in
-                            Task {
-                                await viewModel.deleteTransaction(transactionId)
-                            }
-                        }
-                    )
+                    // Recent Transactions
+                    transactionsSection
                 }
                 .padding()
                 .padding(.bottom, 80)
@@ -57,7 +50,7 @@ struct MonthlySummaryView: View {
                 await viewModel.loadSummary()
             }
 
-            // Botão flutuante
+            // Floating Action Button
             VStack {
                 Spacer()
                 FloatingAddButton {
@@ -92,122 +85,140 @@ struct MonthlySummaryView: View {
         }
     }
 
-    private var monthHeader: some View {
+    private var headerView: some View {
         HStack {
-            Button(action: {
-                Task {
-                    await viewModel.goToPreviousMonth()
-                }
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(AppColors.cardBackground)
-                        .frame(width: 40, height: 40)
-                        .overlay(
-                            Circle()
-                                .stroke(AppColors.cardBorder, lineWidth: 1)
-                        )
-
-                    Image(systemName: "chevron.left")
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(AppColors.textPrimary)
-                }
-            }
-
-            Spacer()
-
-            VStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Visão Geral")
+                    .font(.system(size: 14, weight: .medium, design: .rounded))
+                    .foregroundColor(AppColors.textSecondary)
+                
                 HStack(spacing: 8) {
                     Text(viewModel.currentMonth.displayString)
-                        .font(.headline)
-                        .fontWeight(.bold)
+                        .font(.system(size: 24, weight: .bold, design: .rounded))
                         .foregroundColor(AppColors.textPrimary)
-
-                    // Indicador offline
+                    
                     if viewModel.isOffline {
                         Image(systemName: "wifi.slash")
                             .font(.caption)
                             .foregroundColor(AppColors.textTertiary)
                     }
-
-                    // Indicador de sync pendente
+                    
                     if viewModel.pendingSyncCount > 0 {
                         HStack(spacing: 2) {
                             Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.caption2)
                             Text("\(viewModel.pendingSyncCount)")
-                                .font(.caption2)
                         }
+                        .font(.caption2)
                         .foregroundColor(AppColors.accentOrange)
-                    }
-                }
-
-                if viewModel.currentMonth != .current {
-                    Button(action: {
-                        Task {
-                            await viewModel.goToToday()
-                        }
-                    }) {
-                        Text("Ir para hoje")
-                            .font(.caption)
-                            .foregroundColor(AppColors.accentBlue)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(AppColors.accentOrange.opacity(0.1))
+                        .clipShape(Capsule())
                     }
                 }
             }
-
+            
             Spacer()
-
-            Button(action: {
-                Task {
-                    await viewModel.goToNextMonth()
+            
+            // Month Navigation
+            HStack(spacing: 4) {
+                Button(action: {
+                    Task { await viewModel.goToPreviousMonth() }
+                }) {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(AppColors.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Circle())
                 }
-            }) {
-                ZStack {
-                    Circle()
-                        .fill(AppColors.cardBackground)
-                        .frame(width: 40, height: 40)
-                        .overlay(
-                            Circle()
-                                .stroke(AppColors.cardBorder, lineWidth: 1)
-                        )
-
+                
+                Button(action: {
+                    Task { await viewModel.goToNextMonth() }
+                }) {
                     Image(systemName: "chevron.right")
                         .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.textPrimary)
+                        .frame(width: 32, height: 32)
+                        .background(Color.white.opacity(0.05))
+                        .clipShape(Circle())
+                }
+                
+                if viewModel.currentMonth != .current {
+                    Button(action: {
+                        Task { await viewModel.goToToday() }
+                    }) {
+                        Text("Hoje")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(AppColors.accentBlue)
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 6)
+                            .background(AppColors.accentBlue.opacity(0.1))
+                            .clipShape(Capsule())
+                    }
+                    .padding(.leading, 8)
                 }
             }
         }
-        .padding(16)
-        .background(AppColors.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(16)
+        .padding(.vertical, 8)
     }
 
-    private var summaryCards: some View {
+    private var summaryCardsSection: some View {
         HStack(spacing: 12) {
             SummaryCard(
                 title: "Receitas",
                 value: CurrencyUtils.format(viewModel.totalIncome),
-                color: AppColors.accentGreen,
-                icon: "arrow.down.circle.fill"
+                color: AppColors.income,
+                icon: "arrow.down"
             )
 
             SummaryCard(
                 title: "Gastos",
                 value: CurrencyUtils.format(viewModel.totalExpense),
-                color: AppColors.accentRed,
-                icon: "arrow.up.circle.fill"
+                color: AppColors.expense,
+                icon: "arrow.up"
             )
 
             SummaryCard(
                 title: "Saldo",
                 value: CurrencyUtils.format(viewModel.balance),
                 color: viewModel.balance >= 0 ? AppColors.accentBlue : AppColors.accentOrange,
-                icon: "wallet.pass.fill"
+                icon: "wallet.pass"
             )
+        }
+    }
+    
+    private var transactionsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            DarkSectionHeader(
+                title: "Transações",
+                actionText: viewModel.filteredTransactions.isEmpty ? nil : "Ver todas",
+                action: { /* Navigate to full list if needed */ }
+            )
+            
+            if viewModel.filteredTransactions.isEmpty {
+                DarkEmptyState(
+                    icon: "list.bullet.clipboard",
+                    title: "Nenhuma transação",
+                    subtitle: "Suas transações deste mês aparecerão aqui"
+                )
+            } else {
+                LazyVStack(spacing: 12) {
+                    ForEach(viewModel.filteredTransactions) { transaction in
+                        TransactionRowCard(transaction: transaction)
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    Task {
+                                        await viewModel.deleteTransaction(transaction.id)
+                                    }
+                                } label: {
+                                    Label("Excluir", systemImage: "trash")
+                                }
+                            }
+                    }
+                }
+            }
         }
     }
 }
