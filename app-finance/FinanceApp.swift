@@ -280,7 +280,7 @@ struct CreditCardView: View {
 
     private var cardsList: some View {
         ScrollView {
-            LazyVStack(spacing: 12) {
+            LazyVStack(spacing: 16) {
                 ForEach(creditCards) { card in
                     CreditCardRow(card: card) {
                         selectedCard = card
@@ -306,6 +306,14 @@ struct CreditCardDetailView: View {
     let onEdit: (CreditCard) -> Void
 
     private let cardRepo = CreditCardRepository.shared
+
+    // Get the card type name (e.g., "Ultravioleta" instead of "Black")
+    private var cardTypeName: String {
+        if let bankCard = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+            return bankCard.name
+        }
+        return card.cardTypeEnum.rawValue
+    }
 
     var body: some View {
         ZStack {
@@ -352,7 +360,8 @@ struct CreditCardDetailView: View {
                     lastFourDigits: card.lastFourDigits,
                     brand: card.brandEnum,
                     cardType: card.cardTypeEnum,
-                    bank: card.bankEnum
+                    bank: card.bankEnum,
+                    bankCard: AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum })
                 )
                 .padding(.horizontal)
 
@@ -360,7 +369,7 @@ struct CreditCardDetailView: View {
                 VStack(spacing: 16) {
                     detailRow(title: "Banco", value: card.bankEnum.rawValue)
                     detailRow(title: "Bandeira", value: card.brandEnum.rawValue)
-                    detailRow(title: "Tipo", value: card.cardTypeEnum.rawValue)
+                    detailRow(title: "Tipo", value: cardTypeName)
                     detailRow(title: "Fechamento", value: "Dia \(card.closingDay)")
                     detailRow(title: "Vencimento", value: "Dia \(card.paymentDay)")
                     if card.limitAmount > 0 {

@@ -57,32 +57,36 @@ struct AddCreditCardView: View {
     }
 
     var body: some View {
-        ZStack {
-            DarkBackground(blurColor1: AppColors.blurBlue, blurColor2: AppColors.blurPurple)
+        NavigationStack {
+            ZStack {
+                DarkBackground(blurColor1: AppColors.blurBlue, blurColor2: AppColors.blurPurple)
 
-            VStack(spacing: 0) {
-                header
+                VStack(spacing: 0) {
+                    header
 
-                ScrollView {
-                    VStack(spacing: 24) {
-                        cardPreview
-                            .padding(.top, 8)
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            cardPreview
+                                .padding(.top, 8)
 
-                        formFields
+                            formFields
+                        }
+                        .padding()
                     }
-                    .padding()
                 }
             }
+            .navigationBarHidden(true)
+            .onAppear(perform: loadCardData)
         }
-        .navigationBarHidden(true)
-        .onAppear(perform: loadCardData)
     }
 
     // MARK: - Header
 
     private var header: some View {
         HStack {
-            Button(action: { dismiss() }) {
+            Button {
+                dismiss()
+            } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
@@ -90,6 +94,8 @@ struct AddCreditCardView: View {
                     .background(AppColors.cardBackground)
                     .cornerRadius(10)
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
 
             Spacer()
 
@@ -100,12 +106,15 @@ struct AddCreditCardView: View {
 
             Spacer()
 
-            Button(action: saveCard) {
+            Button {
+                saveCard()
+            } label: {
                 Text("Salvar")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(canSave ? AppColors.accentBlue : AppColors.textTertiary)
             }
+            .buttonStyle(.plain)
             .disabled(!canSave || isLoading)
         }
         .padding()
@@ -623,7 +632,7 @@ struct CreditCardVisual: View {
     private var cardColors: [Color] {
         if let bankCard = bankCard {
             let color = Color(hex: bankCard.cardColor) ?? .gray
-            return [color, color.opacity(0.8)]
+            return [color.opacity(0.9), color]
         }
         return cardType.gradientColors
     }
@@ -636,133 +645,147 @@ struct CreditCardVisual: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack {
-                Text(bank.rawValue)
-                    .font(.caption)
-                    .fontWeight(.bold)
-                    .foregroundColor(textColor.opacity(0.9))
-
-                Spacer()
-
-                // Chip
-                RoundedRectangle(cornerRadius: 4)
+        ZStack {
+            // Background with premium gradient
+            // Background with premium gradient
+            if bank == .nubank && cardType == .black {
+                // Nubank Ultravioleta Special Gradient
+                RoundedRectangle(cornerRadius: 20)
+                    .fill(
+                        RadialGradient(
+                            gradient: Gradient(colors: [
+                                Color(hex: "#5c3596") ?? .purple,
+                                Color(hex: "#2D1B4E") ?? .black
+                            ]),
+                            center: .center,
+                            startRadius: 0,
+                            endRadius: 250
+                        )
+                    )
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
+            } else {
+                // Standard Linear Gradient
+                RoundedRectangle(cornerRadius: 20)
                     .fill(
                         LinearGradient(
-                            colors: [.yellow.opacity(0.8), .orange.opacity(0.6)],
+                            colors: cardColors,
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    .frame(width: 40, height: 30)
                     .overlay(
-                        VStack(spacing: 2) {
-                            ForEach(0..<3, id: \.self) { _ in
-                                Rectangle()
-                                    .fill(Color.black.opacity(0.2))
-                                    .frame(height: 1)
-                            }
+                        ZStack {
+                            // Abstract shapes for depth
+                            Circle()
+                                .fill(Color.white.opacity(0.1))
+                                .frame(width: 250, height: 250)
+                                .offset(x: -100, y: -100)
+                                .blur(radius: 30)
+                            
+                            Circle()
+                                .fill(Color.black.opacity(0.15))
+                                .frame(width: 200, height: 200)
+                                .offset(x: 150, y: 100)
+                                .blur(radius: 30)
                         }
-                        .padding(.horizontal, 4)
                     )
+                    .clipShape(RoundedRectangle(cornerRadius: 20))
             }
 
-            Spacer()
+            // Content
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(alignment: .top) {
+                    // Bank Logo/Name
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(bank.rawValue)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundColor(textColor)
+                        
+                        if !cardName.isEmpty && cardName != bank.rawValue {
+                            Text(cardName)
+                                .font(.system(size: 12))
+                                .foregroundColor(textColor.opacity(0.8))
+                        }
+                    }
 
-            Text("**** **** **** \(lastFourDigits)")
-                .font(.system(size: 18, weight: .medium, design: .monospaced))
-                .foregroundColor(textColor)
-                .tracking(2)
+                    Spacer()
 
-            Spacer()
-
-            HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("TITULAR")
-                        .font(.system(size: 8))
-                        .foregroundColor(textColor.opacity(0.6))
-
-                    Text(holderName)
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundColor(textColor)
-                        .lineLimit(1)
+                    // Contactless Icon
+                    Image(systemName: "wave.3.right")
+                        .font(.system(size: 24))
+                        .foregroundColor(textColor.opacity(0.7))
+                        .rotationEffect(.degrees(90))
                 }
 
                 Spacer()
 
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(cardType.rawValue.uppercased())
-                        .font(.system(size: 8, weight: .bold))
-                        .foregroundColor(textColor.opacity(0.8))
-
-                    Text(brand.rawValue)
-                        .font(.system(size: 14, weight: .bold))
+                HStack {
+                    // Chip
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(
+                            LinearGradient(
+                                colors: [.yellow.opacity(0.8), .orange.opacity(0.6)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 45, height: 35)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                        .overlay(
+                            VStack(spacing: 3) {
+                                ForEach(0..<3, id: \.self) { _ in
+                                    Rectangle()
+                                        .fill(Color.black.opacity(0.1))
+                                        .frame(height: 1)
+                                }
+                            }
+                            .padding(.horizontal, 6)
+                        )
+                    
+                    Spacer()
+                    
+                    // Brand Logo (Icon)
+                    Image(systemName: brand.icon)
+                        .font(.system(size: 32))
                         .foregroundColor(textColor)
                 }
+                .padding(.bottom, 20)
+
+                HStack(alignment: .bottom) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("**** **** **** \(lastFourDigits)")
+                            .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                            .foregroundColor(textColor)
+                            .tracking(3)
+
+                        Text(holderName)
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundColor(textColor.opacity(0.8))
+                            .lineLimit(1)
+                    }
+
+                    Spacer()
+                    
+                    Text((bankCard?.name ?? cardType.rawValue).uppercased())
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(textColor.opacity(0.6))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(4)
+                }
             }
+            .padding(24)
         }
-        .padding(20)
-        .frame(height: 200)
-        .background(
-            LinearGradient(
-                colors: cardColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(16)
+        .frame(height: 220)
         .shadow(color: cardColors.first?.opacity(0.4) ?? .black.opacity(0.3), radius: 20, x: 0, y: 10)
     }
 }
 
-// MARK: - Mini Credit Card Component (For List)
 
-struct MiniCreditCard: View {
-    let cardType: CardType
-    let bank: Bank
-    let lastFourDigits: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            // Bank name
-            Text(bank.rawValue)
-                .font(.system(size: 6, weight: .bold))
-                .foregroundColor(.white.opacity(0.8))
-                .lineLimit(1)
-
-            Spacer()
-
-            // Mini chip
-            RoundedRectangle(cornerRadius: 2)
-                .fill(
-                    LinearGradient(
-                        colors: [.yellow.opacity(0.8), .orange.opacity(0.6)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 16, height: 12)
-
-            Spacer()
-
-            // Last 4 digits
-            Text("•••• \(lastFourDigits)")
-                .font(.system(size: 8, weight: .medium, design: .monospaced))
-                .foregroundColor(.white)
-        }
-        .padding(8)
-        .frame(width: 70, height: 45)
-        .background(
-            LinearGradient(
-                colors: cardType.gradientColors,
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .cornerRadius(6)
-        .shadow(color: cardType.gradientColors.first?.opacity(0.3) ?? .black.opacity(0.2), radius: 4, x: 0, y: 2)
-    }
-}
 
 // MARK: - Credit Card Row (For List)
 
@@ -770,71 +793,131 @@ struct CreditCardRow: View {
     let card: CreditCard
     var onTap: (() -> Void)? = nil
 
+    private var cardColors: [Color] {
+        // Try to find specific bank card color matching the tier
+        if let match = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+            if let color = Color(hex: match.cardColor) {
+                return [color.opacity(0.9), color]
+            }
+        }
+        return card.cardTypeEnum.gradientColors
+    }
+
     var body: some View {
         Button(action: { onTap?() }) {
             HStack(spacing: 16) {
-                // Mini card
-                MiniCreditCard(
-                    cardType: card.cardTypeEnum,
-                    bank: card.bankEnum,
-                    lastFourDigits: card.lastFourDigits.isEmpty ? "****" : card.lastFourDigits
-                )
+                // Card Icon Container (Mini Card Visual - Limpo)
+                ZStack(alignment: .topLeading) {
+                    // Specific background for Nubank Ultravioleta to mimic the real card (Light center, dark edges)
+                    if card.bankEnum == .nubank && card.cardTypeEnum == .black {
+                         RoundedRectangle(cornerRadius: 6)
+                            .fill(
+                                RadialGradient(
+                                    gradient: Gradient(colors: [
+                                        Color(hex: "#5c3596") ?? .purple, // Light center
+                                        Color(hex: "#2D1B4E") ?? .black   // Dark edges
+                                    ]),
+                                    center: .center,
+                                    startRadius: 0,
+                                    endRadius: 35
+                                )
+                            )
+                            .frame(width: 56, height: 36)
+                            .shadow(color: Color(hex: "#2D1B4E")?.opacity(0.5) ?? .black.opacity(0.3), radius: 4, x: 0, y: 2)
+                    } else {
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(
+                                LinearGradient(
+                                    colors: cardColors,
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 56, height: 36)
+                            .shadow(color: cardColors.first?.opacity(0.3) ?? .black.opacity(0.2), radius: 4, x: 0, y: 2)
+                    }
+                    
+                    // Chip simulation
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(
+                            LinearGradient(
+                                colors: [.yellow.opacity(0.8), .orange.opacity(0.7)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 12, height: 9)
+                        .padding(.leading, 6)
+                        .padding(.top, 10)
+                }
 
                 // Card info
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 4) {
+                    // Nome e Final
                     HStack {
                         Text(card.cardName)
-                            .font(.headline)
+                            .font(.body)
+                            .fontWeight(.semibold)
                             .foregroundColor(AppColors.textPrimary)
 
                         Spacer()
 
-                        Text(card.brandEnum.rawValue)
-                            .font(.caption)
-                            .foregroundColor(AppColors.textSecondary)
+                        if !card.lastFourDigits.isEmpty {
+                            Text("•••• \(card.lastFourDigits)")
+                                .font(.caption)
+                                .foregroundColor(AppColors.textTertiary)
+                        }
                     }
 
+                    // Limite (Linha dedicada se existir)
+                    if card.limitAmount > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "banknote")
+                                .font(.caption2)
+                            Text(card.formattedLimit)
+                                .font(.caption)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(AppColors.accentGreen)
+                        .padding(.bottom, 2)
+                    }
+                    
+                    // Datas (Linha dedicada para não espremer)
                     HStack(spacing: 16) {
-                        // Fechamento
+                        // Closing Day
                         HStack(spacing: 4) {
                             Image(systemName: "calendar")
-                                .font(.system(size: 10))
-                                .foregroundColor(AppColors.textTertiary)
+                                .font(.caption2)
                             Text("Fecha dia \(card.closingDay)")
                                 .font(.caption)
-                                .foregroundColor(AppColors.textSecondary)
                         }
-
-                        // Vencimento
+                        
+                        // Payment Day
                         HStack(spacing: 4) {
                             Image(systemName: "clock")
-                                .font(.system(size: 10))
-                                .foregroundColor(AppColors.textTertiary)
+                                .font(.caption2)
                             Text("Vence dia \(card.paymentDay)")
                                 .font(.caption)
-                                .foregroundColor(AppColors.textSecondary)
                         }
                     }
-
-                    if card.limitAmount > 0 {
-                        Text("Limite: \(card.formattedLimit)")
-                            .font(.caption)
-                            .foregroundColor(AppColors.accentGreen)
-                    }
+                    .foregroundColor(AppColors.textSecondary)
                 }
+                
+                Spacer()
 
                 // Chevron
                 Image(systemName: "chevron.right")
                     .font(.caption)
+                    .fontWeight(.bold)
                     .foregroundColor(AppColors.textTertiary)
             }
             .padding(16)
             .background(AppColors.cardBackground)
+            .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.cardBorder, lineWidth: 1)
+                    .stroke(AppColors.cardBorder.opacity(0.5), lineWidth: 1)
             )
-            .cornerRadius(16)
         }
         .buttonStyle(PlainButtonStyle())
     }

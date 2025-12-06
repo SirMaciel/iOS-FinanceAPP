@@ -3,6 +3,7 @@ import SwiftUI
 struct MonthlySummaryView: View {
     @StateObject private var viewModel = MonthlySummaryViewModel()
     @State private var showingAddTransaction = false
+    @State private var showingAddFixedExpense = false
 
     var body: some View {
         ZStack {
@@ -17,6 +18,21 @@ struct MonthlySummaryView: View {
 
                     // Cards de resumo
                     summaryCards
+
+                    // Contas Fixas
+                    FixedExpensesCarousel(
+                        expenses: viewModel.fixedExpensesList,
+                        onAddTap: { showingAddFixedExpense = true },
+                        onDelete: { expense in
+                            // Call delete on VM
+                            viewModel.deleteFixedExpense(expense)
+                        }
+                    )
+
+                    // Gastos do Cartão
+                    if !viewModel.cardSpending.isEmpty {
+                        CardSpendingCarousel(cardSpendings: viewModel.cardSpending)
+                    }
 
                     // Gráfico de pizza
                     if !viewModel.pieData.isEmpty {
@@ -66,6 +82,13 @@ struct MonthlySummaryView: View {
         }
         .sheet(isPresented: $showingAddTransaction) {
             AddTransactionView(onTransactionAdded: {
+                Task {
+                    await viewModel.loadSummary()
+                }
+            })
+        }
+        .sheet(isPresented: $showingAddFixedExpense) {
+            AddFixedExpenseView(onSaved: {
                 Task {
                     await viewModel.loadSummary()
                 }

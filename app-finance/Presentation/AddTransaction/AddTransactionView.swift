@@ -136,6 +136,20 @@ struct AddTransactionView: View {
                             .cornerRadius(16)
                         }
 
+
+
+                        // Forma de Pagamento (apenas para gastos)
+                        if viewModel.type == .expense {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Forma de Pagamento")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(AppColors.textSecondary)
+
+                                paymentMethodPicker
+                            }
+                        }
+
                         // Descrição
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Descrição")
@@ -232,10 +246,155 @@ struct AddTransactionView: View {
             }
         }
         .onAppear {
+            // Carregar cartões de crédito
+            if let userId = authManager.userId {
+                viewModel.loadCreditCards(userId: userId)
+            }
+
             // Auto-foca no campo de valor com pequeno delay para garantir que a view está pronta
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
                 isAmountFocused = true
             }
         }
+    }
+
+    // MARK: - Payment Method Picker
+
+    private var paymentMethodPicker: some View {
+        Menu {
+            // Opções básicas: Dinheiro, Pix, Débito
+            Button(action: {
+                viewModel.paymentMethod = .cash
+                viewModel.selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.cash.icon)
+                    Text(PaymentMethod.cash.rawValue)
+                    if viewModel.paymentMethod == .cash {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            Button(action: {
+                viewModel.paymentMethod = .pix
+                viewModel.selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.pix.icon)
+                    Text(PaymentMethod.pix.rawValue)
+                    if viewModel.paymentMethod == .pix {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            Button(action: {
+                viewModel.paymentMethod = .debit
+                viewModel.selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.debit.icon)
+                    Text(PaymentMethod.debit.rawValue)
+                    if viewModel.paymentMethod == .debit {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            // Cartões de Crédito (se houver)
+            if !viewModel.creditCards.isEmpty {
+                Divider()
+
+                // Seção de Cartões de Crédito
+                ForEach(viewModel.creditCards, id: \.id) { card in
+                    Button(action: {
+                        viewModel.paymentMethod = .credit
+                        viewModel.selectedCreditCard = card
+                    }) {
+                        HStack {
+                            Image(systemName: "creditcard.fill")
+                                .foregroundColor(cardColor(for: card))
+                            Text(card.cardName)
+                            if viewModel.paymentMethod == .credit && viewModel.selectedCreditCard?.id == card.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack {
+                // Ícone baseado no método selecionado
+                if viewModel.paymentMethod == .credit, let card = viewModel.selectedCreditCard {
+                    miniCardIcon(for: card)
+                    Text(card.cardName)
+                        .foregroundColor(AppColors.textPrimary)
+                } else {
+                    Image(systemName: viewModel.paymentMethod.icon)
+                        .foregroundColor(paymentMethodColor)
+                    Text(viewModel.paymentMethod.rawValue)
+                        .foregroundColor(AppColors.textPrimary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.down")
+                    .font(.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            .padding(16)
+            .background(AppColors.cardBackground)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(AppColors.cardBorder, lineWidth: 1)
+            )
+            .cornerRadius(16)
+        }
+    }
+
+    private var paymentMethodColor: Color {
+        switch viewModel.paymentMethod {
+        case .cash: return .green
+        case .pix: return .cyan
+        case .debit: return .orange
+        case .credit: return .purple
+        }
+    }
+
+    private func miniCardIcon(for card: CreditCard) -> some View {
+        let cardColors: [Color] = {
+            if let match = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+                if let color = Color(hex: match.cardColor) {
+                    return [color.opacity(0.9), color]
+                }
+            }
+            return card.cardTypeEnum.gradientColors
+        }()
+
+        return RoundedRectangle(cornerRadius: 4)
+            .fill(
+                LinearGradient(
+                    colors: cardColors,
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .frame(width: 28, height: 18)
+            .overlay(
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(LinearGradient(colors: [.yellow.opacity(0.8), .orange.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                    .frame(width: 6, height: 4)
+                    .offset(x: -6, y: 2)
+            )
+    }
+
+    private func cardColor(for card: CreditCard) -> Color {
+        if let match = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+            if let color = Color(hex: match.cardColor) {
+                return color
+            }
+        }
+        return card.cardTypeEnum.gradientColors.first ?? .purple
     }
 }

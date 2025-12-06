@@ -15,6 +15,7 @@ class MonthlySummaryViewModel: ObservableObject {
     // Local data
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var categories: [Category] = []
+    @Published private(set) var fixedExpensesList: [FixedExpense] = []
 
     private let transactionRepo = TransactionRepository.shared
     private let categoryRepo = CategoryRepository.shared
@@ -124,6 +125,33 @@ class MonthlySummaryViewModel: ObservableObject {
         }
     }
 
+
+
+    var fixedExpenses: [FixedExpense] = []
+
+    var cardSpending: [CreditCardSpending] {
+        // Group transactions by credit card
+        let cardTransactions = transactions.filter {
+            $0.type == .expense &&
+            $0.creditCardId != nil &&
+            $0.syncStatusEnum != .pendingDelete
+        }
+
+        let grouped = Dictionary(grouping: cardTransactions) { $0.creditCardId! }
+        let creditCardRepo = CreditCardRepository.shared
+
+        return grouped.compactMap { (cardId, txs) -> CreditCardSpending? in
+            guard let card = creditCardRepo.getCreditCard(id: cardId) else { return nil }
+            let total = txs.reduce(0) { $0 + $1.amountDouble }
+            return CreditCardSpending(
+                cardId: card.id,
+                cardName: card.cardName,
+                lastFourDigits: card.lastFourDigits,
+                totalAmount: total
+            )
+        }.sorted { $0.totalAmount > $1.totalAmount }
+    }
+
     var selectedCategoryInfo: (name: String, total: String)? {
         guard let categoryId = selectedCategoryId,
               let cat = pieData.first(where: { $0.categoryId == categoryId }) else {
@@ -168,6 +196,8 @@ class MonthlySummaryViewModel: ObservableObject {
             categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
         }
+        
+        fixedExpensesList = FixedExpenseRepository.shared.getFixedExpenses(userId: userId)
     }
 
     private func updatePendingCount() {
@@ -239,9 +269,14 @@ class MonthlySummaryViewModel: ObservableObject {
         loadFromLocal()
         isLoading = false
     }
+
+    func deleteFixedExpense(_ expense: FixedExpense) {
+        FixedExpenseRepository.shared.deleteFixedExpense(expense)
+        loadFromLocal()
+    }
 }
 
-// MARK: - Transaction Item ViewModel
+    // MARK: - Transaction Item ViewModel
 
 struct TransactionItemViewModel: Identifiable {
     let id: String
@@ -255,4 +290,12 @@ struct TransactionItemViewModel: Identifiable {
     let categoryColor: Color
     let needsUserReview: Bool
     var isPendingSync: Bool = false
+}
+
+struct CreditCardSpending: Identifiable {
+    var id: String { cardId }
+    let cardId: String
+    let cardName: String
+    let lastFourDigits: String
+    let totalAmount: Double
 }

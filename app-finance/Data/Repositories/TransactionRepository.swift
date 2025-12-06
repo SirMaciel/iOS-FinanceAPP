@@ -78,11 +78,13 @@ final class TransactionRepository: ObservableObject {
         amount: Decimal,
         date: Date,
         description: String,
-        categoryId: String? = nil
+        categoryId: String? = nil,
+        creditCardId: String? = nil
     ) -> Transaction {
         let transaction = Transaction(
             userId: userId,
             categoryId: categoryId,
+            creditCardId: creditCardId,
             type: type,
             amount: amount,
             date: date,

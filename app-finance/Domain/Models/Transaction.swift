@@ -17,6 +17,7 @@ final class Transaction: Identifiable {
     var serverId: String?  // ID do servidor (pode ser diferente do local)
     var userId: String
     var categoryId: String?
+    var creditCardId: String?  // ID do cartão de crédito usado (opcional)
     var type: TransactionType
     var amount: Decimal
     var date: Date
@@ -35,6 +36,7 @@ final class Transaction: Identifiable {
         serverId: String? = nil,
         userId: String,
         categoryId: String? = nil,
+        creditCardId: String? = nil,
         type: TransactionType,
         amount: Decimal,
         date: Date,
@@ -52,6 +54,7 @@ final class Transaction: Identifiable {
         self.serverId = serverId
         self.userId = userId
         self.categoryId = categoryId
+        self.creditCardId = creditCardId
         self.type = type
         self.amount = amount
         self.date = date

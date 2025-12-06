@@ -162,9 +162,9 @@ struct AvailableBankCards {
         BankCard(id: "c6_gold", bank: .c6, name: "Gold", displayName: "C6 Gold", cardColor: "#D4AF37", tier: .gold),
 
         // ITAÚ
-        BankCard(id: "itau_click", bank: .itau, name: "Click", displayName: "Itaú Click", cardColor: "#1E3A5F", tier: .platinum, defaultBrand: .visa),
+        BankCard(id: "itau_click", bank: .itau, name: "Click", displayName: "Itaú Click", cardColor: "#EC7000", tier: .platinum, defaultBrand: .visa),
         BankCard(id: "itau_gold", bank: .itau, name: "Gold", displayName: "Itaú Gold", cardColor: "#D4AF37", tier: .gold),
-        BankCard(id: "itau_platinum", bank: .itau, name: "Platinum", displayName: "Itaú Platinum", cardColor: "#7C7C7C", tier: .platinum),
+        BankCard(id: "itau_platinum", bank: .itau, name: "Platinum", displayName: "Itaú Platinum", cardColor: "#EC7000", tier: .platinum),
         BankCard(id: "itau_personnalite_infinite", bank: .itau, name: "Personnalité Infinite", displayName: "Itaú Personnalité Visa Infinite", cardColor: "#1A1A1A", tier: .black, defaultBrand: .visa),
         BankCard(id: "itau_personnalite_black", bank: .itau, name: "Personnalité Black", displayName: "Itaú Personnalité Mastercard Black", cardColor: "#1A1A1A", tier: .black),
         BankCard(id: "itau_azul_gold", bank: .itau, name: "Azul Gold", displayName: "Azul Itaucard Gold", cardColor: "#0066CC", tier: .gold, defaultBrand: .visa),
