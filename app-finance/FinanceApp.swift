@@ -145,31 +145,126 @@ struct RootView: View {
 
 struct MainTabView: View {
     @EnvironmentObject var authManager: AuthManager
+    @State private var showingProfile = false
 
     var body: some View {
-        TabView {
-            MonthlySummaryView()
-                .tabItem {
-                    Label("Resumo", systemImage: "chart.pie.fill")
-                }
+        VStack(spacing: 0) {
+            // Header com perfil e notificação
+            ProfileHeader(onProfileTap: { showingProfile = true })
 
-            CreditCardView()
-                .tabItem {
-                    Label("Cartões", systemImage: "creditcard.fill")
-                }
+            // Tab content
+            TabView {
+                MonthlySummaryView()
+                    .tabItem {
+                        Label("Resumo", systemImage: "chart.pie.fill")
+                    }
 
-            CategoriesView()
-                .tabItem {
-                    Label("Categorias", systemImage: "folder.fill")
-                }
+                CreditCardView()
+                    .tabItem {
+                        Label("Cartões", systemImage: "creditcard.fill")
+                    }
 
-            ProfileView()
-                .tabItem {
-                    Label("Perfil", systemImage: "person.fill")
-                }
+                CategoriesView()
+                    .tabItem {
+                        Label("Categorias", systemImage: "folder.fill")
+                    }
+            }
+            .tint(.blue)
         }
-        .tint(.blue)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingProfile) {
+            NavigationStack {
+                ProfileView()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: { showingProfile = false }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                    }
+            }
+        }
+    }
+}
+
+// MARK: - Profile Header
+
+struct ProfileHeader: View {
+    @EnvironmentObject var authManager: AuthManager
+    let onProfileTap: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Profile photo + greeting
+            Button(action: onProfileTap) {
+                HStack(spacing: 12) {
+                    // Profile photo (circular)
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [.blue, .purple],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 44, height: 44)
+
+                        Text(authManager.userName?.prefix(1).uppercased() ?? "U")
+                            .font(.system(size: 18, weight: .bold))
+                            .foregroundColor(.white)
+                    }
+
+                    // Greeting
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Olá,")
+                            .font(.subheadline)
+                            .foregroundColor(AppColors.textSecondary)
+
+                        Text(authManager.userName ?? "Usuário")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(AppColors.textPrimary)
+                            .lineLimit(1)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+
+            Spacer()
+
+            // Notification icon
+            Button(action: {
+                // TODO: Open notifications
+            }) {
+                ZStack {
+                    Circle()
+                        .fill(AppColors.cardBackground)
+                        .frame(width: 40, height: 40)
+                        .overlay(
+                            Circle()
+                                .stroke(AppColors.cardBorder, lineWidth: 1)
+                        )
+
+                    Image(systemName: "bell.fill")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppColors.textPrimary)
+
+                    // Notification badge (optional - for future use)
+                    // Circle()
+                    //     .fill(.red)
+                    //     .frame(width: 8, height: 8)
+                    //     .offset(x: 6, y: -6)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(AppColors.bgPrimary)
     }
 }
 
