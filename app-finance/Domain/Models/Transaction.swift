@@ -31,6 +31,14 @@ final class Transaction: Identifiable {
     var lastSyncAttempt: Date?
     var syncError: String?
 
+    // Location
+    var locationName: String?
+    var latitude: Double?
+    var longitude: Double?
+
+    // Installments (for credit card purchases)
+    var installments: Int?
+
     init(
         id: String = UUID().uuidString,
         serverId: String? = nil,
@@ -48,7 +56,11 @@ final class Transaction: Identifiable {
         updatedAt: Date = Date(),
         syncStatus: SyncStatus = .pending,
         lastSyncAttempt: Date? = nil,
-        syncError: String? = nil
+        syncError: String? = nil,
+        locationName: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        installments: Int? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -67,6 +79,10 @@ final class Transaction: Identifiable {
         self.syncStatus = syncStatus.rawValue
         self.lastSyncAttempt = lastSyncAttempt
         self.syncError = syncError
+        self.locationName = locationName
+        self.latitude = latitude
+        self.longitude = longitude
+        self.installments = installments
     }
 
     var syncStatusEnum: SyncStatus {

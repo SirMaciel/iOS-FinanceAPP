@@ -152,9 +152,12 @@ struct AddFixedBillView: View {
 
                 TextField("0,00", text: $amount)
                     .font(.system(size: 32, weight: .bold))
-                    .foregroundColor(AppColors.expense)
+                    .foregroundColor(AppColors.textPrimary)
                     .keyboardType(.decimalPad)
                     .focused($isAmountFocused)
+                    .onChange(of: amount) { _, newValue in
+                        amount = formatCurrencyInput(newValue)
+                    }
             }
             .padding(16)
             .background(AppColors.cardBackground)
@@ -164,6 +167,30 @@ struct AddFixedBillView: View {
             )
             .cornerRadius(16)
         }
+    }
+
+    /// Formata entrada para moeda brasileira (apenas números, com vírgula para decimais)
+    private func formatCurrencyInput(_ input: String) -> String {
+        // Remove tudo que não é número
+        let digitsOnly = input.filter { $0.isNumber }
+
+        // Se vazio, retorna vazio
+        guard !digitsOnly.isEmpty else { return "" }
+
+        // Converte para centavos
+        guard let cents = Int(digitsOnly) else { return "" }
+
+        // Formata como moeda (divide por 100 para obter reais)
+        let reais = Double(cents) / 100.0
+
+        // Formata com separador de milhares e vírgula decimal
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+
+        return formatter.string(from: NSNumber(value: reais)) ?? ""
     }
 
     // MARK: - Name Section
@@ -894,7 +921,14 @@ struct AddFixedBillView: View {
 
         name = bill.name
         originalName = bill.name // Salvar nome original para comparação
-        amount = String(format: "%.2f", bill.amountDouble).replacingOccurrences(of: ".", with: ",")
+
+        // Formatar valor como moeda brasileira
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "pt_BR")
+        formatter.minimumFractionDigits = 2
+        formatter.maximumFractionDigits = 2
+        amount = formatter.string(from: NSNumber(value: bill.amountDouble)) ?? ""
         dueDay = bill.dueDay
         category = bill.category
         notes = bill.notes ?? ""
@@ -920,7 +954,13 @@ struct AddFixedBillView: View {
     private func saveBill() {
         guard let userId = authManager.userId else { return }
 
-        guard let amountDecimal = Decimal(string: amount.replacingOccurrences(of: ",", with: ".")) else {
+        // Converter valor formatado (1.234,56) para Decimal
+        // Remove pontos de milhar e troca vírgula por ponto
+        let cleanAmount = amount
+            .replacingOccurrences(of: ".", with: "")
+            .replacingOccurrences(of: ",", with: ".")
+
+        guard let amountDecimal = Decimal(string: cleanAmount) else {
             return
         }
 

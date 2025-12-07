@@ -15,9 +15,11 @@ class MonthlySummaryViewModel: ObservableObject {
     // Local data
     @Published private(set) var transactions: [Transaction] = []
     @Published private(set) var categories: [Category] = []
+    @Published private(set) var fixedBills: [FixedBill] = []
 
     private let transactionRepo = TransactionRepository.shared
     private let categoryRepo = CategoryRepository.shared
+    private let fixedBillRepo = FixedBillRepository.shared
     private let syncManager = SyncManager.shared
     private let networkMonitor = NetworkMonitor.shared
 
@@ -63,13 +65,73 @@ class MonthlySummaryViewModel: ObservableObject {
     }
 
     var totalExpense: Double {
-        transactions
+        let transactionsTotal = transactions
             .filter { $0.type == .expense && $0.syncStatusEnum != .pendingDelete }
             .reduce(0) { $0 + $1.amountDouble }
+        return transactionsTotal + totalFixedBills
+    }
+
+    var totalFixedBills: Double {
+        activeFixedBillsForMonth.reduce(0) { $0 + $1.amountDouble }
+    }
+
+    /// Contas fixas ativas para o mês atual, excluindo financiamentos já terminados
+    var activeFixedBillsForMonth: [FixedBill] {
+        fixedBills.filter { bill in
+            // Deve estar ativa
+            guard bill.isActive else { return false }
+
+            // Se não tem parcelas, sempre mostrar
+            guard let totalInstallments = bill.totalInstallments, totalInstallments > 0 else {
+                return true
+            }
+
+            // Calcular quantos meses se passaram desde a criação da conta
+            let calendar = Calendar.current
+            let billStartDate = bill.createdAt
+
+            // Pegar o ano e mês do currentMonth
+            let currentYear = currentMonth.year
+            let currentMonthNum = currentMonth.month
+
+            // Calcular diferença de meses
+            let billYear = calendar.component(.year, from: billStartDate)
+            let billMonth = calendar.component(.month, from: billStartDate)
+
+            let monthsSinceCreation = (currentYear - billYear) * 12 + (currentMonthNum - billMonth)
+
+            // Considerar parcelas já pagas antes de adicionar ao app
+            let paidBefore = bill.paidInstallments ?? 0
+
+            // Parcela atual = parcelas já pagas + meses desde criação + 1
+            let currentInstallment = paidBefore + monthsSinceCreation + 1
+
+            // Mostrar se ainda não terminou todas as parcelas
+            return currentInstallment <= totalInstallments
+        }
     }
 
     var balance: Double {
         totalIncome - totalExpense
+    }
+
+    /// Calcula a parcela atual de um financiamento baseado no mês selecionado
+    func currentInstallment(for bill: FixedBill) -> Int? {
+        guard let totalInstallments = bill.totalInstallments, totalInstallments > 0 else {
+            return nil
+        }
+
+        let calendar = Calendar.current
+        let billYear = calendar.component(.year, from: bill.createdAt)
+        let billMonth = calendar.component(.month, from: bill.createdAt)
+
+        let monthsSinceCreation = (currentMonth.year - billYear) * 12 + (currentMonth.month - billMonth)
+
+        // Considerar parcelas já pagas antes de adicionar ao app
+        let paidBefore = bill.paidInstallments ?? 0
+
+        // Parcela atual = parcelas já pagas + meses desde criação + 1
+        return min(paidBefore + monthsSinceCreation + 1, totalInstallments)
     }
 
     var pieData: [PieCategoryData] {
@@ -119,7 +181,10 @@ class MonthlySummaryViewModel: ObservableObject {
                 categoryName: category?.name,
                 categoryColor: category?.color ?? .gray,
                 needsUserReview: tx.needsUserReview,
-                isPendingSync: tx.isPendingSync
+                isPendingSync: tx.isPendingSync,
+                locationName: tx.locationName,
+                latitude: tx.latitude,
+                longitude: tx.longitude
             )
         }
     }
@@ -144,7 +209,14 @@ class MonthlySummaryViewModel: ObservableObject {
                 cardId: card.id,
                 cardName: card.cardName,
                 lastFourDigits: card.lastFourDigits,
-                totalAmount: total
+                totalAmount: total,
+                bank: card.bankEnum,
+                cardType: card.cardTypeEnum,
+                paymentDay: card.paymentDay,
+                daysUntilPayment: card.daysUntilPayment,
+                paymentStatusText: card.paymentStatusText,
+                isPaymentDueSoon: card.isPaymentDueSoon,
+                isPaymentOverdue: card.isPaymentOverdue
             )
         }.sorted { $0.totalAmount > $1.totalAmount }
     }
@@ -187,6 +259,7 @@ class MonthlySummaryViewModel: ObservableObject {
             userId: userId
         )
         categories = categoryRepo.getCategories(userId: userId)
+        fixedBills = fixedBillRepo.getFixedBills(userId: userId)
 
         // Seed default categories se necessário
         if categories.isEmpty {
@@ -280,6 +353,10 @@ struct TransactionItemViewModel: Identifiable {
     let categoryColor: Color
     let needsUserReview: Bool
     var isPendingSync: Bool = false
+    // Location
+    var locationName: String?
+    var latitude: Double?
+    var longitude: Double?
 }
 
 struct CreditCardSpending: Identifiable {
@@ -288,4 +365,11 @@ struct CreditCardSpending: Identifiable {
     let cardName: String
     let lastFourDigits: String
     let totalAmount: Double
+    let bank: Bank
+    let cardType: CardType
+    let paymentDay: Int
+    let daysUntilPayment: Int
+    let paymentStatusText: String
+    let isPaymentDueSoon: Bool
+    let isPaymentOverdue: Bool
 }

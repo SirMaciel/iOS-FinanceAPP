@@ -10,33 +10,38 @@ struct SummaryCard: View {
     var icon: String? = nil
 
     var body: some View {
-        DarkCard(padding: 16, corners: 20) {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    if let icon = icon {
-                        Image(systemName: icon)
-                            .font(.system(size: 16))
-                            .foregroundColor(color)
-                            .padding(8)
-                            .background(color.opacity(0.1))
-                            .clipShape(Circle())
-                    }
-                    
-                    Spacer()
-                }
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(title)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(AppColors.textSecondary)
-                    
-                    Text(value)
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(AppColors.textPrimary)
-                        .minimumScaleFactor(0.8)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            // Icon
+            if let icon = icon {
+                Image(systemName: icon)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(color)
+                    .frame(width: 28, height: 28)
+                    .background(color.opacity(0.15))
+                    .clipShape(Circle())
             }
+
+            // Title
+            Text(title)
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(AppColors.textSecondary)
+
+            // Value
+            Text(value)
+                .font(.system(size: 15, weight: .bold, design: .rounded))
+                .foregroundColor(AppColors.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(AppColors.cardBackground)
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(AppColors.cardBorder, lineWidth: 1)
+        )
     }
 }
 
@@ -81,11 +86,17 @@ struct TransactionRowCard: View {
             }
             
             Spacer()
-            
+
             // Amount
-            Text(transaction.amountFormatted)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(transaction.type == .expense ? AppColors.textPrimary : AppColors.income)
+            HStack(spacing: 4) {
+                Text(transaction.amountFormatted)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(transaction.type == .expense ? AppColors.textPrimary : AppColors.income)
+
+                Image(systemName: "chevron.right")
+                    .font(.caption2)
+                    .foregroundColor(AppColors.textTertiary.opacity(0.5))
+            }
         }
         .padding(.vertical, 8)
         .padding(.horizontal, 4)

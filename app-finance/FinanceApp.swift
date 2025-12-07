@@ -160,11 +160,6 @@ struct MainTabView: View {
                 .tabItem {
                     Label("Cartões", systemImage: "creditcard.fill")
                 }
-
-            CategoriesView()
-                .tabItem {
-                    Label("Categorias", systemImage: "folder.fill")
-                }
         }
         .tint(.blue)
         .preferredColorScheme(.dark)
@@ -257,8 +252,40 @@ struct CreditCardView: View {
     @State private var showAddCard = false
     @State private var selectedCard: CreditCard?
     @State private var editingCard: CreditCard?
+    @State private var viewMode: CardViewMode = .cards
+
+    enum CardViewMode {
+        case cards
+        case transactions
+    }
 
     private let cardRepo = CreditCardRepository.shared
+
+    // MARK: - Computed Properties
+
+    private var totalLimit: Double {
+        creditCards.filter { $0.isActive }.reduce(0) { $0 + (Double(truncating: $1.limitAmount as NSDecimalNumber)) }
+    }
+
+    private var activeCardsCount: Int {
+        creditCards.filter { $0.isActive }.count
+    }
+
+    private var dueSoonCards: [CreditCard] {
+        let today = Calendar.current.component(.day, from: Date())
+        return creditCards.filter { card in
+            guard card.isActive else { return false }
+            let daysUntilDue: Int
+            if card.paymentDay >= today {
+                daysUntilDue = card.paymentDay - today
+            } else {
+                // Próximo mês
+                let daysInMonth = Calendar.current.range(of: .day, in: .month, for: Date())?.count ?? 30
+                daysUntilDue = (daysInMonth - today) + card.paymentDay
+            }
+            return daysUntilDue <= 5 && daysUntilDue >= 0
+        }
+    }
 
     var body: some View {
         ZStack {
@@ -266,26 +293,42 @@ struct CreditCardView: View {
 
             VStack(spacing: 0) {
                 // Header
-                HStack {
-                    DarkSectionHeader(title: "Seus Cartões")
-
-                    Spacer()
-
-                    Button(action: { showAddCard = true }) {
-                        Image(systemName: "plus")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(.black)
-                            .frame(width: 32, height: 32)
-                            .background(Color.white)
-                            .cornerRadius(8)
-                    }
-                }
-                .padding()
+                headerView
 
                 if creditCards.isEmpty {
                     emptyState
                 } else {
-                    cardsList
+                    ScrollView {
+                        VStack(spacing: 24) {
+                            // Summary Card
+                            summaryCard
+
+                            // View Mode Picker
+                            viewModePicker
+
+                            // Content based on mode
+                            if viewMode == .cards {
+                                cardsList
+                                    .transition(.opacity)
+                            } else {
+                                transactionsPlaceholder
+                                    .transition(.opacity)
+                            }
+                        }
+                        .padding()
+                        .padding(.bottom, 80)
+                    }
+                }
+            }
+
+            // Floating Add Button
+            if !creditCards.isEmpty {
+                VStack {
+                    Spacer()
+                    FloatingAddButton {
+                        showAddCard = true
+                    }
+                    .padding(.bottom, 20)
                 }
             }
         }
@@ -304,7 +347,155 @@ struct CreditCardView: View {
         .sheet(item: $editingCard) { card in
             AddCreditCardView(editingCard: card, onSave: loadCards)
         }
+        .animation(.easeInOut, value: viewMode)
     }
+
+    // MARK: - Header
+
+    private var headerView: some View {
+        HStack {
+            DarkSectionHeader(title: "Seus Cartões")
+            Spacer()
+        }
+        .padding()
+    }
+
+    // MARK: - View Mode Picker
+
+    private var viewModePicker: some View {
+        HStack(spacing: 0) {
+            viewModeButton(mode: .cards, icon: "creditcard", title: "Cartões")
+            viewModeButton(mode: .transactions, icon: "list.bullet.rectangle", title: "Transações")
+        }
+        .padding(4)
+        .background(AppColors.cardBackground)
+        .cornerRadius(12)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(AppColors.cardBorder, lineWidth: 1)
+        )
+    }
+
+    private func viewModeButton(mode: CardViewMode, icon: String, title: String) -> some View {
+        Button(action: {
+            withAnimation {
+                viewMode = mode
+            }
+        }) {
+            HStack(spacing: 6) {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.subheadline)
+            .fontWeight(.medium)
+            .foregroundColor(viewMode == mode ? .black : AppColors.textSecondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 36)
+            .background(
+                viewMode == mode ? Color.white : Color.clear
+            )
+            .cornerRadius(10)
+        }
+    }
+
+    // MARK: - Summary Card
+
+    private var summaryCard: some View {
+        VStack(spacing: 16) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Limite Total")
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundColor(AppColors.textSecondary)
+                        .textCase(.uppercase)
+
+                    Text(CurrencyUtils.format(totalLimit))
+                        .font(.system(size: 32, weight: .bold, design: .rounded))
+                        .foregroundColor(AppColors.textPrimary)
+                }
+
+                Spacer()
+
+                ZStack {
+                    Circle()
+                        .fill(Color.purple.opacity(0.1))
+                        .frame(width: 48, height: 48)
+
+                    Image(systemName: "creditcard.fill")
+                        .font(.system(size: 20))
+                        .foregroundColor(.purple)
+                }
+            }
+
+            // Divider aesthetic
+            Rectangle()
+                .fill(LinearGradient(
+                    colors: [AppColors.cardBorder, AppColors.cardBorder.opacity(0)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                ))
+                .frame(height: 1)
+
+            HStack(spacing: 24) {
+                // Cards count
+                HStack(spacing: 8) {
+                    Text("\(activeCardsCount)")
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(AppColors.textPrimary)
+
+                    Text("ativos")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textSecondary)
+                }
+
+                Spacer()
+
+                // Due soon count
+                if !dueSoonCards.isEmpty {
+                    HStack(spacing: 6) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption)
+                            .foregroundColor(AppColors.accentOrange)
+
+                        Text("\(dueSoonCards.count)")
+                            .font(.headline)
+                            .fontWeight(.bold)
+                            .foregroundColor(AppColors.textPrimary)
+
+                        Text("vencem logo")
+                            .font(.caption)
+                            .foregroundColor(AppColors.textSecondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(AppColors.accentOrange.opacity(0.1))
+                    .cornerRadius(20)
+                }
+            }
+        }
+        .padding(24)
+        .background(
+            ZStack {
+                AppColors.cardBackground
+                // Subtle shine
+                LinearGradient(
+                    colors: [Color.white.opacity(0.02), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            }
+        )
+        .cornerRadius(24)
+        .overlay(
+            RoundedRectangle(cornerRadius: 24)
+                .stroke(AppColors.cardBorder, lineWidth: 1)
+        )
+        .shadow(color: Color.black.opacity(0.2), radius: 20, x: 0, y: 10)
+    }
+
+    // MARK: - Empty State
 
     private var emptyState: some View {
         VStack(spacing: 24) {
@@ -354,17 +545,58 @@ struct CreditCardView: View {
         .padding()
     }
 
+    // MARK: - Cards List
+
     private var cardsList: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                ForEach(creditCards) { card in
-                    CreditCardRow(card: card) {
-                        selectedCard = card
-                    }
+        LazyVStack(spacing: 16) {
+            ForEach(creditCards) { card in
+                CreditCardRow(card: card) {
+                    selectedCard = card
                 }
             }
-            .padding()
         }
+    }
+
+    // MARK: - Transactions Placeholder
+
+    private var transactionsPlaceholder: some View {
+        VStack(spacing: 24) {
+            Spacer()
+                .frame(height: 40)
+
+            ZStack {
+                Circle()
+                    .fill(Color.blue.opacity(0.1))
+                    .frame(width: 80, height: 80)
+
+                Image(systemName: "clock.badge.questionmark")
+                    .font(.system(size: 32))
+                    .foregroundColor(.blue)
+            }
+
+            VStack(spacing: 8) {
+                Text("Em breve")
+                    .font(.title3)
+                    .fontWeight(.bold)
+                    .foregroundColor(AppColors.textPrimary)
+
+                Text("As transações dos cartões\nserão exibidas aqui")
+                    .font(.subheadline)
+                    .foregroundColor(AppColors.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+
+            Spacer()
+                .frame(height: 40)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(24)
+        .background(AppColors.cardBackground)
+        .cornerRadius(20)
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(AppColors.cardBorder, lineWidth: 1)
+        )
     }
 
     private func loadCards() {

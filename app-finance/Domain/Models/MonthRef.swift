@@ -42,8 +42,9 @@ struct MonthRef: Equatable, Hashable {
         let date = startDate
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "pt_BR")
-        formatter.dateFormat = "MMMM yyyy"
+        formatter.dateFormat = "MMMM 'de' yyyy"
         let str = formatter.string(from: date)
-        return str.capitalized
+        // Capitalizar apenas a primeira letra do mês
+        return str.prefix(1).uppercased() + str.dropFirst()
     }
 }

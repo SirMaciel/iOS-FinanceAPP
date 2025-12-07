@@ -400,4 +400,62 @@ final class CreditCard: Identifiable {
     var maskedNumber: String {
         "**** **** **** \(lastFourDigits.isEmpty ? "****" : lastFourDigits)"
     }
+
+    // MARK: - Payment Due Date Properties
+
+    /// Returns the next payment due date based on today
+    var nextPaymentDate: Date {
+        let calendar = Calendar.current
+        let today = Date()
+        let currentDay = calendar.component(.day, from: today)
+        let currentMonth = calendar.component(.month, from: today)
+        let currentYear = calendar.component(.year, from: today)
+
+        // If payment day already passed this month, next due is next month
+        if currentDay > paymentDay {
+            var components = DateComponents()
+            components.year = currentYear
+            components.month = currentMonth + 1
+            components.day = min(paymentDay, 28) // Handle months with fewer days
+            return calendar.date(from: components) ?? today
+        } else {
+            var components = DateComponents()
+            components.year = currentYear
+            components.month = currentMonth
+            components.day = min(paymentDay, 28)
+            return calendar.date(from: components) ?? today
+        }
+    }
+
+    /// Days until next payment date
+    var daysUntilPayment: Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let dueDate = calendar.startOfDay(for: nextPaymentDate)
+        return calendar.dateComponents([.day], from: today, to: dueDate).day ?? 0
+    }
+
+    /// Status text based on days until payment
+    var paymentStatusText: String {
+        let days = daysUntilPayment
+        if days == 0 {
+            return "Vence hoje"
+        } else if days == 1 {
+            return "Vence amanhã"
+        } else if days < 0 {
+            return "Vencida"
+        } else if days <= 7 {
+            return "Vence em \(days) dias"
+        } else {
+            return "Dia \(paymentDay)"
+        }
+    }
+
+    var isPaymentOverdue: Bool {
+        daysUntilPayment < 0
+    }
+
+    var isPaymentDueSoon: Bool {
+        daysUntilPayment >= 0 && daysUntilPayment <= 7
+    }
 }

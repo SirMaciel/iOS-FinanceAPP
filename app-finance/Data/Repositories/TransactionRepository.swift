@@ -79,7 +79,11 @@ final class TransactionRepository: ObservableObject {
         date: Date,
         description: String,
         categoryId: String? = nil,
-        creditCardId: String? = nil
+        creditCardId: String? = nil,
+        locationName: String? = nil,
+        latitude: Double? = nil,
+        longitude: Double? = nil,
+        installments: Int? = nil
     ) -> Transaction {
         let transaction = Transaction(
             userId: userId,
@@ -89,7 +93,11 @@ final class TransactionRepository: ObservableObject {
             amount: amount,
             date: date,
             description: description,
-            syncStatus: .pending
+            syncStatus: .pending,
+            locationName: locationName,
+            latitude: latitude,
+            longitude: longitude,
+            installments: installments
         )
 
         context.insert(transaction)

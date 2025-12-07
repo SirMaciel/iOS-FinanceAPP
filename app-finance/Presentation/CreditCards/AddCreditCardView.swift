@@ -803,6 +803,22 @@ struct CreditCardRow: View {
         return card.cardTypeEnum.gradientColors
     }
 
+    private var statusColor: Color {
+        if card.isPaymentOverdue {
+            return AppColors.expense
+        } else if card.isPaymentDueSoon {
+            return AppColors.accentOrange
+        }
+        return AppColors.textSecondary
+    }
+
+    private var borderColor: Color {
+        if card.isPaymentOverdue || card.isPaymentDueSoon {
+            return statusColor.opacity(0.3)
+        }
+        return AppColors.cardBorder
+    }
+
     var body: some View {
         Button(action: { onTap?() }) {
             HStack(spacing: 16) {
@@ -836,7 +852,7 @@ struct CreditCardRow: View {
                             .frame(width: 56, height: 36)
                             .shadow(color: cardColors.first?.opacity(0.3) ?? .black.opacity(0.2), radius: 4, x: 0, y: 2)
                     }
-                    
+
                     // Chip simulation
                     RoundedRectangle(cornerRadius: 2)
                         .fill(
@@ -881,7 +897,7 @@ struct CreditCardRow: View {
                         .foregroundColor(AppColors.accentGreen)
                         .padding(.bottom, 2)
                     }
-                    
+
                     // Datas (Linha dedicada para não espremer)
                     HStack(spacing: 16) {
                         // Closing Day
@@ -891,18 +907,25 @@ struct CreditCardRow: View {
                             Text("Fecha dia \(card.closingDay)")
                                 .font(.caption)
                         }
-                        
-                        // Payment Day
+                        .foregroundColor(AppColors.textSecondary)
+
+                        // Payment Day with status
                         HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                                .font(.caption2)
-                            Text("Vence dia \(card.paymentDay)")
+                            if card.isPaymentOverdue || card.isPaymentDueSoon {
+                                Image(systemName: card.isPaymentOverdue ? "exclamationmark.circle.fill" : "clock.fill")
+                                    .font(.caption2)
+                            } else {
+                                Image(systemName: "clock")
+                                    .font(.caption2)
+                            }
+                            Text(card.paymentStatusText)
                                 .font(.caption)
+                                .fontWeight(card.isPaymentOverdue || card.isPaymentDueSoon ? .medium : .regular)
                         }
+                        .foregroundColor(statusColor)
                     }
-                    .foregroundColor(AppColors.textSecondary)
                 }
-                
+
                 Spacer()
 
                 // Chevron
@@ -916,7 +939,7 @@ struct CreditCardRow: View {
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.cardBorder.opacity(0.5), lineWidth: 1)
+                    .stroke(borderColor, lineWidth: 1)
             )
         }
         .buttonStyle(PlainButtonStyle())

@@ -1,5 +1,6 @@
 import SwiftUI
 import Charts
+import UIKit
 
 struct PieChartView: View {
     let data: [PieCategoryData]
@@ -33,32 +34,65 @@ struct PieChartView: View {
                         .opacity(selectedCategoryId == nil || selectedCategoryId == item.categoryId ? 1.0 : 0.3)
                     }
                     .frame(height: 260)
-                    .chartBackground { _ in
-                        // Área clicável
+                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedCategoryId)
+                    .chartOverlay { proxy in
                         GeometryReader { geo in
-                            let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
-                            let radius: CGFloat = 110
+                            Rectangle()
+                                .fill(Color.clear)
+                                .contentShape(Rectangle())
+                                .onTapGesture { location in
+                                    // Calcular qual fatia foi clicada
+                                    let center = CGPoint(x: geo.size.width / 2, y: geo.size.height / 2)
+                                    let dx = location.x - center.x
+                                    let dy = location.y - center.y
+                                    let distance = sqrt(dx * dx + dy * dy)
 
-                            ForEach(data) { item in
-                                let startAngle = angleForCategory(item, before: true)
-                                let endAngle = angleForCategory(item, before: false)
+                                    // Verificar se está dentro do donut (entre innerRadius e outerRadius)
+                                    let innerRadius: CGFloat = 60
+                                    let outerRadius: CGFloat = 130
 
-                                PieSliceTapArea(
-                                    center: center,
-                                    innerRadius: 60,
-                                    outerRadius: radius + 30,
-                                    startAngle: startAngle,
-                                    endAngle: endAngle
-                                )
-                                .onTapGesture {
-                                    withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                        onTap(item.categoryId)
+                                    guard distance >= innerRadius && distance <= outerRadius else {
+                                        // Clicou fora ou no centro - deselecionar
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                            if selectedCategoryId != nil {
+                                                onTap(selectedCategoryId!)
+                                            }
+                                        }
+                                        return
+                                    }
+
+                                    // Calcular ângulo do clique
+                                    var angle = atan2(dy, dx)
+                                    angle = angle + .pi / 2 // Ajustar para começar do topo
+                                    if angle < 0 { angle += 2 * .pi }
+                                    let clickAngle = Angle(radians: angle)
+
+                                    // Encontrar qual categoria foi clicada
+                                    for item in data {
+                                        let startAngle = angleForCategory(item, before: true)
+                                        let endAngle = angleForCategory(item, before: false)
+
+                                        var start = startAngle.radians
+                                        var end = endAngle.radians
+                                        if start < 0 { start += 2 * .pi }
+                                        if end < 0 { end += 2 * .pi }
+                                        if end < start { end += 2 * .pi }
+
+                                        var click = clickAngle.radians
+                                        if click < start { click += 2 * .pi }
+
+                                        if click >= start && click <= end {
+                                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                                                onTap(item.categoryId)
+                                            }
+                                            let generator = UIImpactFeedbackGenerator(style: .light)
+                                            generator.impactOccurred()
+                                            return
+                                        }
                                     }
                                 }
-                            }
                         }
                     }
-                    .animation(.spring(response: 0.3, dampingFraction: 0.7), value: selectedCategoryId)
 
                     // Centro com informações
                     VStack(spacing: 4) {
@@ -74,7 +108,7 @@ struct PieChartView: View {
                                 .fontWeight(.bold)
                                 .foregroundColor(Color(hex: selected.colorHex) ?? AppColors.textPrimary)
 
-                            Text("\(Int(selected.percent * 100))%")
+                            Text(String(format: "%.1f%%", selected.percent))
                                 .font(.caption)
                                 .fontWeight(.semibold)
                                 .foregroundColor(AppColors.textSecondary)
@@ -155,10 +189,10 @@ struct PieChartView: View {
                         .fontWeight(.semibold)
                         .foregroundColor(AppColors.textPrimary)
 
-                    Text("\(Int(item.percent * 100))%")
+                    Text(String(format: "%.0f%%", item.percent))
                         .font(.caption)
                         .foregroundColor(AppColors.textSecondary)
-                        .frame(width: 32, alignment: .trailing)
+                        .frame(width: 40, alignment: .trailing)
                 }
                 .padding(.vertical, 8)
                 .padding(.horizontal, 10)
@@ -194,44 +228,5 @@ struct PieChartView: View {
             accumulated += item.total
         }
         return .degrees(0)
-    }
-}
-
-struct PieSliceTapArea: View {
-    let center: CGPoint
-    let innerRadius: CGFloat
-    let outerRadius: CGFloat
-    let startAngle: Angle
-    let endAngle: Angle
-
-    var body: some View {
-        Path { path in
-            let start = startAngle.radians - .pi / 2
-            let end = endAngle.radians - .pi / 2
-
-            path.addArc(
-                center: center,
-                radius: outerRadius,
-                startAngle: Angle(radians: start),
-                endAngle: Angle(radians: end),
-                clockwise: false
-            )
-
-            path.addLine(to: CGPoint(
-                x: center.x + innerRadius * cos(end),
-                y: center.y + innerRadius * sin(end)
-            ))
-
-            path.addArc(
-                center: center,
-                radius: innerRadius,
-                startAngle: Angle(radians: end),
-                endAngle: Angle(radians: start),
-                clockwise: true
-            )
-
-            path.closeSubpath()
-        }
-        .fill(Color.clear)
     }
 }
