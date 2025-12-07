@@ -3,6 +3,7 @@ import SwiftUI
 struct MonthlySummaryView: View {
     @StateObject private var viewModel = MonthlySummaryViewModel()
     @State private var showingAddTransaction = false
+    @State private var showingProfile = false
 
     var body: some View {
         ZStack {
@@ -10,10 +11,14 @@ struct MonthlySummaryView: View {
             DarkBackground()
 
             // Content
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header Section
-                    headerView
+            VStack(spacing: 0) {
+                // Profile Header
+                ProfileHeader(onProfileTap: { showingProfile = true })
+
+                ScrollView {
+                    VStack(spacing: 24) {
+                        // Header Section
+                        headerView
                     
                     // Dashboard Widgets (Summary Cards)
                     summaryCardsSection
@@ -46,8 +51,9 @@ struct MonthlySummaryView: View {
                 .padding()
                 .padding(.bottom, 80)
             }
-            .refreshable {
-                await viewModel.loadSummary()
+                .refreshable {
+                    await viewModel.loadSummary()
+                }
             }
 
             // Floating Action Button
@@ -68,6 +74,21 @@ struct MonthlySummaryView: View {
                     await viewModel.loadSummary()
                 }
             })
+        }
+        .sheet(isPresented: $showingProfile) {
+            NavigationStack {
+                ProfileView()
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .navigationBarLeading) {
+                            Button(action: { showingProfile = false }) {
+                                Image(systemName: "xmark")
+                                    .font(.system(size: 14, weight: .semibold))
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
+                        }
+                    }
+            }
         }
         .overlay {
             if viewModel.isLoading && viewModel.transactions.isEmpty {

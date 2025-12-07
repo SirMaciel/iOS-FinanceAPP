@@ -144,55 +144,30 @@ struct RootView: View {
 // MARK: - Main Tab View
 
 struct MainTabView: View {
-    @EnvironmentObject var authManager: AuthManager
-    @State private var showingProfile = false
-    @State private var selectedTab = 0
-
     var body: some View {
-        VStack(spacing: 0) {
-            // Header com perfil e notificação (apenas na aba Resumo)
-            if selectedTab == 0 {
-                ProfileHeader(onProfileTap: { showingProfile = true })
-            }
+        TabView {
+            MonthlySummaryView()
+                .tabItem {
+                    Label("Resumo", systemImage: "chart.pie.fill")
+                }
 
-            // Tab content
-            TabView(selection: $selectedTab) {
-                MonthlySummaryView()
-                    .tag(0)
-                    .tabItem {
-                        Label("Resumo", systemImage: "chart.pie.fill")
-                    }
+            FixedBillsView()
+                .tabItem {
+                    Label("Contas", systemImage: "calendar.badge.clock")
+                }
 
-                CreditCardView()
-                    .tag(1)
-                    .tabItem {
-                        Label("Cartões", systemImage: "creditcard.fill")
-                    }
+            CreditCardView()
+                .tabItem {
+                    Label("Cartões", systemImage: "creditcard.fill")
+                }
 
-                CategoriesView()
-                    .tag(2)
-                    .tabItem {
-                        Label("Categorias", systemImage: "folder.fill")
-                    }
-            }
-            .tint(.blue)
+            CategoriesView()
+                .tabItem {
+                    Label("Categorias", systemImage: "folder.fill")
+                }
         }
+        .tint(.blue)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showingProfile) {
-            NavigationStack {
-                ProfileView()
-                    .navigationBarTitleDisplayMode(.inline)
-                    .toolbar {
-                        ToolbarItem(placement: .navigationBarLeading) {
-                            Button(action: { showingProfile = false }) {
-                                Image(systemName: "xmark")
-                                    .font(.system(size: 14, weight: .semibold))
-                                    .foregroundColor(AppColors.textSecondary)
-                            }
-                        }
-                    }
-            }
-        }
     }
 }
 

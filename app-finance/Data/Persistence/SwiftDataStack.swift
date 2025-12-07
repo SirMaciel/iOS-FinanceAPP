@@ -12,6 +12,7 @@ class SwiftDataStack {
             Transaction.self,
             Category.self,
             CreditCard.self,
+            FixedBill.self,
         ])
 
         let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
