@@ -1259,9 +1259,28 @@ struct SummaryEditInstallmentSheet: View {
 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Valor Total
+                        // Nome (primeiro)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Valor Total da Compra")
+                            Text("Nome")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppColors.textSecondary)
+
+                            TextField("Nome do parcelamento", text: $name)
+                                .font(.body)
+                                .foregroundColor(AppColors.textPrimary)
+                                .padding()
+                                .background(AppColors.bgSecondary)
+                                .cornerRadius(12)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 12)
+                                        .stroke(AppColors.cardBorder, lineWidth: 1)
+                                )
+                        }
+
+                        // Valor total (segundo)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Valor total")
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(AppColors.textSecondary)
@@ -1299,60 +1318,70 @@ struct SummaryEditInstallmentSheet: View {
                             .padding(.top, 4)
                         }
 
-                        // Nome
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Descrição")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppColors.textSecondary)
-
-                            TextField("Nome do parcelamento", text: $name)
-                                .font(.body)
-                                .foregroundColor(AppColors.textPrimary)
-                                .padding()
-                                .background(AppColors.bgSecondary)
-                                .cornerRadius(12)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 12)
-                                        .stroke(AppColors.cardBorder, lineWidth: 1)
-                                )
-                        }
-
-                        // Categoria
+                        // Categoria (terceiro) - usando Menu como no padrão
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Categoria")
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(AppColors.textSecondary)
 
-                            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100))], spacing: 8) {
+                            Menu {
                                 ForEach(categories) { category in
-                                    let isSelected = selectedCategory?.id == category.id
-
-                                    Button {
+                                    Button(action: {
                                         selectedCategory = category
-                                    } label: {
-                                        HStack(spacing: 6) {
+                                    }) {
+                                        HStack {
                                             Image(systemName: category.iconName)
-                                                .font(.caption)
                                             Text(category.name)
-                                                .font(.caption)
-                                                .fontWeight(.medium)
-                                                .lineLimit(1)
+                                            if selectedCategory?.id == category.id {
+                                                Image(systemName: "checkmark")
+                                            }
                                         }
-                                        .foregroundColor(isSelected ? .white : AppColors.textSecondary)
-                                        .padding(.horizontal, 12)
-                                        .padding(.vertical, 10)
-                                        .frame(maxWidth: .infinity)
-                                        .background(isSelected ? category.color : AppColors.bgSecondary)
-                                        .cornerRadius(10)
-                                        .overlay(
-                                            RoundedRectangle(cornerRadius: 10)
-                                                .stroke(isSelected ? category.color : AppColors.cardBorder, lineWidth: 1)
-                                        )
                                     }
-                                    .buttonStyle(.plain)
                                 }
+                            } label: {
+                                HStack {
+                                    if let category = selectedCategory {
+                                        ZStack {
+                                            Circle()
+                                                .fill(category.color.opacity(0.2))
+                                                .frame(width: 32, height: 32)
+
+                                            Image(systemName: category.iconName)
+                                                .font(.system(size: 14))
+                                                .foregroundColor(category.color)
+                                        }
+
+                                        Text(category.name)
+                                            .foregroundColor(AppColors.textPrimary)
+                                    } else {
+                                        ZStack {
+                                            Circle()
+                                                .fill(AppColors.textSecondary.opacity(0.2))
+                                                .frame(width: 32, height: 32)
+
+                                            Image(systemName: "tag")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(AppColors.textSecondary)
+                                        }
+
+                                        Text("Selecionar categoria")
+                                            .foregroundColor(AppColors.textSecondary)
+                                    }
+
+                                    Spacer()
+
+                                    Image(systemName: "chevron.down")
+                                        .font(.caption)
+                                        .foregroundColor(AppColors.textSecondary)
+                                }
+                                .padding(16)
+                                .background(AppColors.bgSecondary)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 16)
+                                        .stroke(AppColors.cardBorder, lineWidth: 1)
+                                )
+                                .cornerRadius(16)
                             }
                         }
 

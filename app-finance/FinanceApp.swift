@@ -2769,13 +2769,9 @@ struct EditInstallmentSheet: View {
                         .animation(.easeInOut(duration: 0.2), value: isAILoading)
                         .padding(.horizontal)
 
-                        // Categoria
-                        editCategorySection
-                            .padding(.horizontal)
-
-                        // Valor Total
+                        // Valor total (segundo, após o nome)
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Valor Total")
+                            Text("Valor total")
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(AppColors.textSecondary)
@@ -2802,6 +2798,10 @@ struct EditInstallmentSheet: View {
                             .cornerRadius(16)
                         }
                         .padding(.horizontal)
+
+                        // Categoria (terceiro, após o valor)
+                        editCategorySection
+                            .padding(.horizontal)
 
                         // Installments
                         HStack(spacing: 12) {
