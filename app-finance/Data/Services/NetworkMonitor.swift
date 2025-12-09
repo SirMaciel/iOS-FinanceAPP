@@ -22,6 +22,7 @@ final class NetworkMonitor: ObservableObject {
     }
 
     private init() {
+        print("📶 [Network] NetworkMonitor inicializado")
         startMonitoring()
     }
 

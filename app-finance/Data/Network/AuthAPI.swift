@@ -53,6 +53,46 @@ struct ResetPasswordRequest: Codable {
     let newPassword: String
 }
 
+// MARK: - Profile Request Models
+
+struct UpdateProfileRequest: Codable {
+    let name: String
+    let lastName: String
+}
+
+struct RequestPasswordChangeRequest: Codable {
+    let email: String
+}
+
+struct VerifyPasswordChangeCodeRequest: Codable {
+    let email: String
+    let code: String
+}
+
+struct ChangePasswordRequest: Codable {
+    let token: String
+    let newPassword: String
+}
+
+struct RequestEmailChangeRequest: Codable {
+    let currentEmail: String
+}
+
+struct VerifyCurrentEmailCodeRequest: Codable {
+    let email: String
+    let code: String
+}
+
+struct SetNewEmailRequest: Codable {
+    let token: String
+    let newEmail: String
+}
+
+struct VerifyNewEmailCodeRequest: Codable {
+    let token: String
+    let code: String
+}
+
 // MARK: - Response Models
 
 struct AuthResponse: Codable {
@@ -72,6 +112,28 @@ struct VerifyEmailResponse: Codable {
 
 struct MessageResponse: Codable {
     let message: String
+}
+
+struct UpdateProfileResponse: Codable {
+    let user: User
+}
+
+struct PasswordChangeTokenResponse: Codable {
+    let token: String
+}
+
+struct EmailChangeTokenResponse: Codable {
+    let token: String
+}
+
+struct NewEmailSetResponse: Codable {
+    let token: String
+    let message: String
+}
+
+struct EmailChangeCompleteResponse: Codable {
+    let token: String
+    let user: User
 }
 
 // MARK: - Login Result
@@ -219,6 +281,105 @@ class AuthAPI {
             return try await client.request("/auth/reset-password", method: "POST", body: request)
         } catch APIError.httpError(let code, _) {
             if code == 400 {
+                throw AuthError.invalidCode
+            }
+            throw AuthError.unknown
+        }
+    }
+
+    // MARK: - Profile Operations
+
+    /// Atualiza nome e sobrenome do usuário
+    func updateProfile(name: String, lastName: String) async throws -> UpdateProfileResponse {
+        let request = UpdateProfileRequest(name: name, lastName: lastName)
+        return try await client.request("/auth/profile", method: "PATCH", body: request)
+    }
+
+    /// Busca dados do usuário atual
+    func getProfile() async throws -> User {
+        return try await client.request("/auth/profile")
+    }
+
+    // MARK: - Change Password (with verification code)
+
+    /// Solicita código de verificação para trocar senha
+    func requestPasswordChange(email: String) async throws -> MessageResponse {
+        let request = RequestPasswordChangeRequest(email: email)
+        return try await client.request("/auth/change-password/request", method: "POST", body: request)
+    }
+
+    /// Verifica código e retorna token para trocar senha
+    func verifyPasswordChangeCode(email: String, code: String) async throws -> String {
+        let request = VerifyPasswordChangeCodeRequest(email: email, code: code)
+        do {
+            let response: PasswordChangeTokenResponse = try await client.request("/auth/change-password/verify", method: "POST", body: request)
+            return response.token
+        } catch APIError.httpError(let code, let message) {
+            if code == 400 {
+                if message.contains("expired") || message.contains("expirado") {
+                    throw AuthError.codeExpired
+                }
+                throw AuthError.invalidCode
+            }
+            throw AuthError.unknown
+        }
+    }
+
+    /// Troca a senha usando o token de verificação
+    func changePassword(token: String, newPassword: String) async throws -> MessageResponse {
+        let request = ChangePasswordRequest(token: token, newPassword: newPassword)
+        return try await client.request("/auth/change-password/confirm", method: "POST", body: request)
+    }
+
+    // MARK: - Change Email (with dual verification)
+
+    /// Solicita código de verificação no email atual
+    func requestEmailChange(currentEmail: String) async throws -> MessageResponse {
+        let request = RequestEmailChangeRequest(currentEmail: currentEmail)
+        return try await client.request("/auth/change-email/request", method: "POST", body: request)
+    }
+
+    /// Verifica código do email atual e retorna token
+    func verifyCurrentEmailCode(email: String, code: String) async throws -> String {
+        let request = VerifyCurrentEmailCodeRequest(email: email, code: code)
+        do {
+            let response: EmailChangeTokenResponse = try await client.request("/auth/change-email/verify-current", method: "POST", body: request)
+            return response.token
+        } catch APIError.httpError(let code, let message) {
+            if code == 400 {
+                if message.contains("expired") || message.contains("expirado") {
+                    throw AuthError.codeExpired
+                }
+                throw AuthError.invalidCode
+            }
+            throw AuthError.unknown
+        }
+    }
+
+    /// Define novo email e envia código de verificação para ele
+    func setNewEmail(token: String, newEmail: String) async throws -> String {
+        let request = SetNewEmailRequest(token: token, newEmail: newEmail)
+        do {
+            let response: NewEmailSetResponse = try await client.request("/auth/change-email/set-new", method: "POST", body: request)
+            return response.token
+        } catch APIError.httpError(let code, let message) {
+            if code == 409 || message.contains("already") {
+                throw AuthError.emailAlreadyExists
+            }
+            throw AuthError.unknown
+        }
+    }
+
+    /// Verifica código do novo email e completa a troca
+    func verifyNewEmailCode(token: String, code: String) async throws -> EmailChangeCompleteResponse {
+        let request = VerifyNewEmailCodeRequest(token: token, code: code)
+        do {
+            return try await client.request("/auth/change-email/verify-new", method: "POST", body: request)
+        } catch APIError.httpError(let code, let message) {
+            if code == 400 {
+                if message.contains("expired") || message.contains("expirado") {
+                    throw AuthError.codeExpired
+                }
                 throw AuthError.invalidCode
             }
             throw AuthError.unknown

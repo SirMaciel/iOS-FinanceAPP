@@ -16,8 +16,11 @@ final class SyncManager: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private let transactionsAPI = TransactionsAPI.shared
     private let categoriesAPI = CategoriesAPI.shared
+    private let creditCardsAPI = CreditCardsAPI.shared
+    private let fixedBillsAPI = FixedBillsAPI.shared
 
     private init() {
+        print("🔄 [Sync] SyncManager inicializado")
         setupNetworkObserver()
         loadLastSyncDate()
     }
@@ -47,39 +50,80 @@ final class SyncManager: ObservableObject {
     // MARK: - Public Methods
 
     func syncAll() async {
+        print("🔄 [Sync] syncAll() chamado")
+
         guard !isSyncing else {
-            print("🔄 [Sync] Já sincronizando...")
+            print("🔄 [Sync] Já sincronizando, ignorando...")
             return
         }
 
-        guard NetworkMonitor.shared.isConnected else {
+        let isConnected = NetworkMonitor.shared.isConnected
+        print("🔄 [Sync] Network conectado: \(isConnected)")
+
+        guard isConnected else {
             print("🔄 [Sync] Sem conexão, sync adiado")
             return
         }
 
         isSyncing = true
         syncError = nil
-        print("🔄 [Sync] Iniciando sincronização...")
+        print("🔄 [Sync] Iniciando sincronização completa...")
 
+        var hasErrors = false
+
+        // 1. Sync categorias primeiro (transações dependem delas)
+        print("🔄 [Sync] 1/4 Sincronizando categorias...")
         do {
-            // 1. Sync categorias primeiro (transações dependem delas)
             try await syncCategories()
-
-            // 2. Sync transações
-            try await syncTransactions()
-
-            saveLastSyncDate()
-            await updatePendingCount()
-
-            print("✅ [Sync] Sincronização completa!")
-            NotificationCenter.default.post(name: .syncCompleted, object: nil)
+            print("✅ [Sync] Categorias sincronizadas")
         } catch {
-            print("❌ [Sync] Erro: \(error.localizedDescription)")
-            syncError = error.localizedDescription
-            NotificationCenter.default.post(name: .syncFailed, object: error)
+            print("❌ [Sync] Erro em categorias: \(error)")
+            hasErrors = true
         }
 
+        // 2. Sync cartões de crédito (transações podem referenciar)
+        print("🔄 [Sync] 2/4 Sincronizando cartões...")
+        do {
+            try await syncCreditCards()
+            print("✅ [Sync] Cartões sincronizados")
+        } catch {
+            print("⚠️ [Sync] Cartões ignorados (endpoint não disponível)")
+            // Não marcar como erro crítico - endpoint pode não existir ainda
+        }
+
+        // 3. Sync contas fixas
+        print("🔄 [Sync] 3/4 Sincronizando contas fixas...")
+        do {
+            try await syncFixedBills()
+            print("✅ [Sync] Contas fixas sincronizadas")
+        } catch {
+            print("❌ [Sync] Erro em contas fixas: \(error)")
+            hasErrors = true
+        }
+
+        // 4. Sync transações (depende de categorias e cartões)
+        print("🔄 [Sync] 4/4 Sincronizando transações...")
+        do {
+            try await syncTransactions()
+            print("✅ [Sync] Transações sincronizadas")
+        } catch {
+            print("❌ [Sync] Erro em transações: \(error)")
+            hasErrors = true
+        }
+
+        saveLastSyncDate()
+        await updatePendingCount()
+
+        if hasErrors {
+            print("⚠️ [Sync] Sincronização concluída com alguns erros")
+            syncError = "Alguns itens não foram sincronizados"
+        } else {
+            print("✅ [Sync] Sincronização completa!")
+        }
+        NotificationCenter.default.post(name: .syncCompleted, object: nil)
+
         isSyncing = false
+        print("🔄 [Sync] Sync finalizado, isSyncing = false")
     }
 
     func updatePendingCount() async {
@@ -91,11 +135,19 @@ final class SyncManager: ObservableObject {
         let categoryDescriptor = FetchDescriptor<Category>(
             predicate: #Predicate { $0.syncStatus != "synced" }
         )
+        let creditCardDescriptor = FetchDescriptor<CreditCard>(
+            predicate: #Predicate { $0.syncStatus != "synced" }
+        )
+        let fixedBillDescriptor = FetchDescriptor<FixedBill>(
+            predicate: #Predicate { $0.syncStatus != "synced" }
+        )
 
         let transactionCount = (try? context.fetchCount(transactionDescriptor)) ?? 0
         let categoryCount = (try? context.fetchCount(categoryDescriptor)) ?? 0
+        let creditCardCount = (try? context.fetchCount(creditCardDescriptor)) ?? 0
+        let fixedBillCount = (try? context.fetchCount(fixedBillDescriptor)) ?? 0
 
-        pendingChangesCount = transactionCount + categoryCount
+        pendingChangesCount = transactionCount + categoryCount + creditCardCount + fixedBillCount
     }
 
     // MARK: - Categories Sync
@@ -128,7 +180,8 @@ final class SyncManager: ObservableObject {
                         let response = try await categoriesAPI.create(
                             name: category.name,
                             colorHex: category.colorHex,
-                            iconName: category.iconName
+                            iconName: category.iconName,
+                            displayOrder: category.displayOrder
                         )
                         category.markAsSynced(serverId: response.id)
                         print("📤 [Sync] Categoria criada: \(category.name)")
@@ -139,7 +192,8 @@ final class SyncManager: ObservableObject {
                             name: category.name,
                             colorHex: category.colorHex,
                             iconName: category.iconName,
-                            isActive: category.isActive
+                            isActive: category.isActive,
+                            displayOrder: category.displayOrder
                         )
                         category.syncStatusEnum = .synced
                         category.lastSyncAttempt = Date()
@@ -175,13 +229,15 @@ final class SyncManager: ObservableObject {
         for serverCat in serverCategories {
             if let existing = localByServerId[serverCat.id]?.first {
                 // Atualizar se local não tiver mudanças pendentes
-                // Preservar displayOrder (é propriedade local apenas)
                 if existing.syncStatusEnum == .synced {
                     existing.name = serverCat.name
                     existing.colorHex = serverCat.colorHex
                     existing.iconName = serverCat.iconName
                     existing.isActive = serverCat.isActive
-                    // displayOrder não é alterado - é local only
+                    // Atualizar displayOrder do servidor se existir
+                    if let serverOrder = serverCat.displayOrder {
+                        existing.displayOrder = serverOrder
+                    }
                 }
             } else {
                 // Verificar se existe categoria local com mesmo nome (merge com default)
@@ -192,7 +248,9 @@ final class SyncManager: ObservableObject {
                     localDefault.iconName = serverCat.iconName
                     localDefault.isActive = serverCat.isActive
                     localDefault.syncStatusEnum = .synced
-                    // Preservar displayOrder local
+                    if let serverOrder = serverCat.displayOrder {
+                        localDefault.displayOrder = serverOrder
+                    }
                     print("🔗 [Sync] Categoria mesclada: \(serverCat.name)")
                 } else {
                     // Criar nova categoria localmente
@@ -204,13 +262,249 @@ final class SyncManager: ObservableObject {
                         colorHex: serverCat.colorHex,
                         iconName: serverCat.iconName,
                         isActive: serverCat.isActive,
-                        displayOrder: maxOrder + 1,  // Adicionar no final da lista
+                        displayOrder: serverCat.displayOrder ?? (maxOrder + 1),
                         syncStatus: .synced
                     )
                     context.insert(newCategory)
                     print("📥 [Sync] Categoria baixada: \(serverCat.name)")
                 }
             }
+        }
+    }
+
+    // MARK: - Credit Cards Sync
+
+    private func syncCreditCards() async throws {
+        let context = SwiftDataStack.shared.context
+
+        // 1. Push local changes to server
+        try await pushPendingCreditCards(context: context)
+
+        // 2. Pull server changes
+        try await pullCreditCards(context: context)
+
+        try context.save()
+    }
+
+    private func pushPendingCreditCards(context: ModelContext) async throws {
+        let descriptor = FetchDescriptor<CreditCard>(
+            predicate: #Predicate { $0.syncStatus != "synced" }
+        )
+        let pendingCards = try context.fetch(descriptor)
+
+        for card in pendingCards {
+            do {
+                switch card.syncStatusEnum {
+                case .pending:
+                    if card.serverId == nil {
+                        // Criar no servidor
+                        let response = try await creditCardsAPI.create(from: card)
+                        card.markAsSynced(serverId: response.id)
+                        print("📤 [Sync] Cartão criado: \(card.cardName)")
+                    } else {
+                        // Atualizar no servidor
+                        _ = try await creditCardsAPI.update(from: card)
+                        card.syncStatusEnum = .synced
+                        card.lastSyncAttempt = Date()
+                        print("📤 [Sync] Cartão atualizado: \(card.cardName)")
+                    }
+
+                case .pendingDelete:
+                    if let serverId = card.serverId {
+                        try await creditCardsAPI.delete(id: serverId)
+                        print("📤 [Sync] Cartão deletado: \(card.cardName)")
+                    }
+                    context.delete(card)
+
+                case .synced:
+                    break
+                }
+            } catch {
+                card.syncError = error.localizedDescription
+                card.lastSyncAttempt = Date()
+                print("❌ [Sync] Erro cartão \(card.cardName): \(error)")
+            }
+        }
+    }
+
+    private func pullCreditCards(context: ModelContext) async throws {
+        let serverCards = try await creditCardsAPI.getAll()
+
+        let descriptor = FetchDescriptor<CreditCard>()
+        let localCards = try context.fetch(descriptor)
+        let localByServerId = Dictionary(grouping: localCards.filter { $0.serverId != nil }, by: { $0.serverId! })
+
+        for serverCard in serverCards {
+            if let existing = localByServerId[serverCard.id]?.first {
+                // Atualizar se local não tiver mudanças pendentes
+                if existing.syncStatusEnum == .synced {
+                    existing.cardName = serverCard.cardName
+                    existing.holderName = serverCard.holderName
+                    existing.lastFourDigits = serverCard.lastFourDigits
+                    existing.brand = serverCard.brand
+                    existing.cardType = serverCard.cardType
+                    existing.bank = serverCard.bank
+                    existing.paymentDay = serverCard.paymentDay
+                    existing.closingDay = serverCard.closingDay
+                    existing.limitAmount = Decimal(serverCard.limitAmount)
+                    existing.isActive = serverCard.isActive
+                    existing.displayOrder = serverCard.displayOrder
+                }
+            } else {
+                // Verificar duplicatas por nome
+                let isDuplicate = localCards.contains {
+                    $0.cardName == serverCard.cardName && $0.serverId == nil
+                }
+
+                if !isDuplicate {
+                    // Criar localmente
+                    let newCard = CreditCard(
+                        serverId: serverCard.id,
+                        userId: serverCard.userId,
+                        cardName: serverCard.cardName,
+                        holderName: serverCard.holderName,
+                        lastFourDigits: serverCard.lastFourDigits,
+                        brand: CardBrand(rawValue: serverCard.brand) ?? .other,
+                        cardType: CardType(rawValue: serverCard.cardType) ?? .standard,
+                        bank: Bank(rawValue: serverCard.bank) ?? .other,
+                        paymentDay: serverCard.paymentDay,
+                        closingDay: serverCard.closingDay,
+                        limitAmount: Decimal(serverCard.limitAmount),
+                        isActive: serverCard.isActive,
+                        displayOrder: serverCard.displayOrder,
+                        syncStatus: .synced
+                    )
+                    context.insert(newCard)
+                    print("📥 [Sync] Cartão baixado: \(serverCard.cardName)")
+                }
+            }
+        }
+    }
+
+    // MARK: - Fixed Bills Sync
+
+    private func syncFixedBills() async throws {
+        let context = SwiftDataStack.shared.context
+
+        // 1. Push local changes to server
+        try await pushPendingFixedBills(context: context)
+
+        // 2. Pull server changes
+        try await pullFixedBills(context: context)
+
+        try context.save()
+    }
+
+    private func pushPendingFixedBills(context: ModelContext) async throws {
+        let descriptor = FetchDescriptor<FixedBill>(
+            predicate: #Predicate { $0.syncStatus != "synced" }
+        )
+        let pendingBills = try context.fetch(descriptor)
+
+        for bill in pendingBills {
+            do {
+                switch bill.syncStatusEnum {
+                case .pending:
+                    if bill.serverId == nil {
+                        // Criar no servidor
+                        let response = try await fixedBillsAPI.create(from: bill)
+                        bill.markAsSynced(serverId: response.id)
+                        print("📤 [Sync] Conta fixa criada: \(bill.name)")
+                    } else {
+                        // Atualizar no servidor
+                        _ = try await fixedBillsAPI.update(from: bill)
+                        bill.syncStatusEnum = .synced
+                        bill.lastSyncAttempt = Date()
+                        print("📤 [Sync] Conta fixa atualizada: \(bill.name)")
+                    }
+
+                case .pendingDelete:
+                    if let serverId = bill.serverId {
+                        try await fixedBillsAPI.delete(id: serverId)
+                        print("📤 [Sync] Conta fixa deletada: \(bill.name)")
+                    }
+                    context.delete(bill)
+
+                case .synced:
+                    break
+                }
+            } catch {
+                bill.syncError = error.localizedDescription
+                bill.lastSyncAttempt = Date()
+                print("❌ [Sync] Erro conta fixa \(bill.name): \(error)")
+            }
+        }
+    }
+
+    private func pullFixedBills(context: ModelContext) async throws {
+        let serverBills = try await fixedBillsAPI.getAll()
+
+        let descriptor = FetchDescriptor<FixedBill>()
+        let localBills = try context.fetch(descriptor)
+        let localByServerId = Dictionary(grouping: localBills.filter { $0.serverId != nil }, by: { $0.serverId! })
+
+        for serverBill in serverBills {
+            if let existing = localByServerId[serverBill.id]?.first {
+                // Atualizar se local não tiver mudanças pendentes
+                if existing.syncStatusEnum == .synced {
+                    existing.name = serverBill.name
+                    existing.amount = Decimal(serverBill.amount)
+                    existing.dueDay = serverBill.dueDay
+                    existing.category = mapFixedBillCategory(serverBill.category)
+                    existing.isActive = serverBill.isActive
+                    existing.notes = serverBill.notes
+                    existing.customCategoryName = serverBill.customCategoryName
+                    existing.customCategoryIcon = serverBill.customCategoryIcon
+                    existing.customCategoryColorHex = serverBill.customCategoryColorHex
+                    existing.totalInstallments = serverBill.totalInstallments
+                    existing.paidInstallments = serverBill.paidInstallments
+                }
+            } else {
+                // Verificar duplicatas
+                let isDuplicate = localBills.contains {
+                    $0.name == serverBill.name && $0.serverId == nil
+                }
+
+                if !isDuplicate {
+                    // Criar localmente
+                    let newBill = FixedBill(
+                        serverId: serverBill.id,
+                        userId: serverBill.userId,
+                        name: serverBill.name,
+                        amount: Decimal(serverBill.amount),
+                        dueDay: serverBill.dueDay,
+                        category: mapFixedBillCategory(serverBill.category),
+                        isActive: serverBill.isActive,
+                        notes: serverBill.notes,
+                        syncStatus: .synced,
+                        customCategoryName: serverBill.customCategoryName,
+                        customCategoryIcon: serverBill.customCategoryIcon,
+                        customCategoryColorHex: serverBill.customCategoryColorHex,
+                        totalInstallments: serverBill.totalInstallments,
+                        paidInstallments: serverBill.paidInstallments
+                    )
+                    context.insert(newBill)
+                    print("📥 [Sync] Conta fixa baixada: \(serverBill.name)")
+                }
+            }
+        }
+    }
+
+    private func mapFixedBillCategory(_ serverCategory: String) -> FixedBillCategory {
+        let normalized = serverCategory.lowercased()
+        switch normalized {
+        case "housing", "moradia": return .housing
+        case "utilities", "utilidades": return .utilities
+        case "health", "saúde", "saude": return .health
+        case "education", "educação", "educacao": return .education
+        case "transport", "transporte": return .transport
+        case "entertainment", "entretenimento": return .entertainment
+        case "subscription", "assinatura": return .subscription
+        case "insurance", "seguro": return .insurance
+        case "financing", "financiamento": return .financing
+        case "loan", "empréstimo", "emprestimo": return .loan
+        case "custom", "personalizada": return .custom
+        default: return .other
         }
     }
 
@@ -222,7 +516,7 @@ final class SyncManager: ObservableObject {
         // 1. Push local changes
         try await pushPendingTransactions(context: context)
 
-        // 2. Pull server changes (por mês atual)
+        // 2. Pull server changes (todos)
         try await pullTransactions(context: context)
 
         try context.save()
@@ -239,8 +533,7 @@ final class SyncManager: ObservableObject {
                 switch transaction.syncStatusEnum {
                 case .pending:
                     if transaction.serverId == nil {
-                        // Criar no servidor
-                        // Resolver categoryId para serverId se necessário
+                        // Resolver categoryId para serverId
                         var serverCategoryId: String? = nil
                         if let localCatId = transaction.categoryId {
                             let catDescriptor = FetchDescriptor<Category>(
@@ -251,12 +544,33 @@ final class SyncManager: ObservableObject {
                             }
                         }
 
+                        // Resolver creditCardId para serverId
+                        var serverCreditCardId: String? = nil
+                        if let localCardId = transaction.creditCardId {
+                            let cardDescriptor = FetchDescriptor<CreditCard>(
+                                predicate: #Predicate { $0.id == localCardId || $0.serverId == localCardId }
+                            )
+                            if let card = try? context.fetch(cardDescriptor).first {
+                                serverCreditCardId = card.serverId ?? card.id
+                            }
+                        }
+
+                        // Criar no servidor com todos os campos
                         let response = try await transactionsAPI.create(
                             type: transaction.type,
                             amount: transaction.amount,
                             date: transaction.date,
                             description: transaction.desc,
-                            categoryId: serverCategoryId
+                            categoryId: serverCategoryId,
+                            creditCardId: serverCreditCardId,
+                            locationName: transaction.locationName,
+                            latitude: transaction.latitude,
+                            longitude: transaction.longitude,
+                            cityName: transaction.cityName,
+                            installments: transaction.installments,
+                            startingInstallment: transaction.startingInstallment,
+                            notes: transaction.notes,
+                            paymentMethod: transaction.paymentMethod
                         )
                         transaction.markAsSynced(serverId: response.id)
 
@@ -281,19 +595,45 @@ final class SyncManager: ObservableObject {
 
                         print("📤 [Sync] Transação criada: \(transaction.desc)")
                     } else {
-                        // Atualizar categoria no servidor
-                        if let categoryId = transaction.categoryId {
+                        // Atualizar todos os campos no servidor
+                        var serverCategoryId: String? = nil
+                        if let localCatId = transaction.categoryId {
                             let catDescriptor = FetchDescriptor<Category>(
-                                predicate: #Predicate { $0.id == categoryId }
+                                predicate: #Predicate { $0.id == localCatId }
                             )
-                            if let category = try? context.fetch(catDescriptor).first,
-                               let serverCatId = category.serverId {
-                                _ = try await transactionsAPI.updateCategory(
-                                    transactionId: transaction.serverId!,
-                                    categoryId: serverCatId
-                                )
+                            if let category = try? context.fetch(catDescriptor).first {
+                                serverCategoryId = category.serverId ?? category.id
                             }
                         }
+
+                        var serverCreditCardId: String? = nil
+                        if let localCardId = transaction.creditCardId {
+                            let cardDescriptor = FetchDescriptor<CreditCard>(
+                                predicate: #Predicate { $0.id == localCardId }
+                            )
+                            if let card = try? context.fetch(cardDescriptor).first {
+                                serverCreditCardId = card.serverId ?? card.id
+                            }
+                        }
+
+                        let dateString = ISO8601DateFormatter().string(from: transaction.date).prefix(10)
+                        _ = try await transactionsAPI.update(
+                            id: transaction.serverId!,
+                            type: transaction.type.rawValue,
+                            amount: NSDecimalNumber(decimal: transaction.amount).doubleValue,
+                            date: String(dateString),
+                            description: transaction.desc,
+                            categoryId: serverCategoryId,
+                            creditCardId: serverCreditCardId,
+                            locationName: transaction.locationName,
+                            latitude: transaction.latitude,
+                            longitude: transaction.longitude,
+                            cityName: transaction.cityName,
+                            installments: transaction.installments,
+                            startingInstallment: transaction.startingInstallment,
+                            notes: transaction.notes,
+                            paymentMethod: transaction.paymentMethod
+                        )
                         transaction.syncStatusEnum = .synced
                         transaction.lastSyncAttempt = Date()
                         print("📤 [Sync] Transação atualizada: \(transaction.desc)")
@@ -318,29 +658,56 @@ final class SyncManager: ObservableObject {
     }
 
     private func pullTransactions(context: ModelContext) async throws {
-        // Buscar transações do mês atual
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM"
-        let currentMonth = formatter.string(from: Date())
+        // Buscar todas as transações
+        let serverTransactions = try await transactionsAPI.getAll()
 
-        let serverTransactions = try await transactionsAPI.getByMonth(month: currentMonth)
-
-        // Buscar transações locais sincronizadas
         let descriptor = FetchDescriptor<Transaction>()
         let localTransactions = try context.fetch(descriptor)
         let localByServerId = Dictionary(grouping: localTransactions.filter { $0.serverId != nil }, by: { $0.serverId! })
+
+        // Buscar todas as categorias e cartões para mapping
+        let allCatsDescriptor = FetchDescriptor<Category>()
+        let allCategories = try context.fetch(allCatsDescriptor)
+        let catByServerId = Dictionary(grouping: allCategories.filter { $0.serverId != nil }, by: { $0.serverId! })
+
+        let allCardsDescriptor = FetchDescriptor<CreditCard>()
+        let allCards = try context.fetch(allCardsDescriptor)
+        let cardByServerId = Dictionary(grouping: allCards.filter { $0.serverId != nil }, by: { $0.serverId! })
 
         for serverTx in serverTransactions {
             if let existing = localByServerId[serverTx.id]?.first {
                 // Atualizar se local não tiver mudanças pendentes
                 if existing.syncStatusEnum == .synced {
-                    existing.categoryId = serverTx.categoryId
+                    // Mapear categoryId do servidor para local
+                    if let serverCatId = serverTx.categoryId,
+                       let localCat = catByServerId[serverCatId]?.first {
+                        existing.categoryId = localCat.id
+                    } else {
+                        existing.categoryId = serverTx.categoryId
+                    }
+
+                    // Mapear creditCardId do servidor para local
+                    if let serverCardId = serverTx.creditCardId,
+                       let localCard = cardByServerId[serverCardId]?.first {
+                        existing.creditCardId = localCard.id
+                    } else {
+                        existing.creditCardId = serverTx.creditCardId
+                    }
+
                     existing.aiConfidence = serverTx.aiConfidence
                     existing.aiJustification = serverTx.aiJustification
                     existing.needsUserReview = serverTx.needsUserReview ?? false
+                    existing.locationName = serverTx.locationName
+                    existing.latitude = serverTx.latitude
+                    existing.longitude = serverTx.longitude
+                    existing.cityName = serverTx.cityName
+                    existing.installments = serverTx.installments
+                    existing.startingInstallment = serverTx.startingInstallment
+                    existing.notes = serverTx.notes
+                    existing.paymentMethod = serverTx.paymentMethod
                 }
             } else {
-                // Verificar se não existe localmente (evitar duplicatas)
+                // Verificar duplicatas
                 let isDuplicate = localTransactions.contains {
                     $0.desc == serverTx.description &&
                     $0.amountDouble == serverTx.amount &&
@@ -353,10 +720,25 @@ final class SyncManager: ObservableObject {
                     dateFormatter.formatOptions = [.withFullDate]
                     let date = dateFormatter.date(from: serverTx.date) ?? Date()
 
+                    // Mapear categoryId do servidor para local
+                    var localCategoryId: String? = serverTx.categoryId
+                    if let serverCatId = serverTx.categoryId,
+                       let localCat = catByServerId[serverCatId]?.first {
+                        localCategoryId = localCat.id
+                    }
+
+                    // Mapear creditCardId do servidor para local
+                    var localCreditCardId: String? = serverTx.creditCardId
+                    if let serverCardId = serverTx.creditCardId,
+                       let localCard = cardByServerId[serverCardId]?.first {
+                        localCreditCardId = localCard.id
+                    }
+
                     let newTransaction = Transaction(
                         serverId: serverTx.id,
                         userId: serverTx.userId ?? "",
-                        categoryId: serverTx.categoryId,
+                        categoryId: localCategoryId,
+                        creditCardId: localCreditCardId,
                         type: TransactionType(rawValue: serverTx.type) ?? .expense,
                         amount: Decimal(serverTx.amount),
                         date: date,
@@ -364,7 +746,15 @@ final class SyncManager: ObservableObject {
                         aiConfidence: serverTx.aiConfidence,
                         aiJustification: serverTx.aiJustification,
                         needsUserReview: serverTx.needsUserReview ?? false,
-                        syncStatus: .synced
+                        syncStatus: .synced,
+                        locationName: serverTx.locationName,
+                        latitude: serverTx.latitude,
+                        longitude: serverTx.longitude,
+                        cityName: serverTx.cityName,
+                        installments: serverTx.installments,
+                        startingInstallment: serverTx.startingInstallment,
+                        notes: serverTx.notes,
+                        paymentMethod: serverTx.paymentMethod
                     )
                     context.insert(newTransaction)
                     print("📥 [Sync] Transação baixada: \(serverTx.description)")

@@ -6,10 +6,26 @@ import Combine
 struct FinanceApp: App {
     @StateObject private var authManager = AuthManager()
 
+    init() {
+        // Inicializar singletons cedo
+        _ = NetworkMonitor.shared
+        _ = SyncManager.shared
+        print("🚀 [App] FinanceApp inicializado")
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()
                 .environmentObject(authManager)
+                .onAppear {
+                    // Sync ao abrir o app se logado
+                    if authManager.isLoggedIn {
+                        Task {
+                            print("🔄 [App] Iniciando sync no onAppear...")
+                            await SyncManager.shared.syncAll()
+                        }
+                    }
+                }
         }
         .modelContainer(SwiftDataStack.shared.container)
     }
@@ -23,11 +39,15 @@ class AuthManager: ObservableObject {
     @Published var isLoading = true
     @Published var userId: String?
     @Published var userName: String?
+    @Published var userLastName: String?
+    @Published var userEmail: String?
 
     private let authAPI = AuthAPI.shared
     private let tokenKey = "auth_token"
     private let userIdKey = "user_id"
     private let userNameKey = "user_name"
+    private let userLastNameKey = "user_last_name"
+    private let userEmailKey = "user_email"
 
     init() {
         // Verificar se tem token salvo
@@ -36,6 +56,8 @@ class AuthManager: ObservableObject {
             APIClient.shared.setToken(token)
             userId = savedUserId
             userName = UserDefaults.standard.string(forKey: userNameKey)
+            userLastName = UserDefaults.standard.string(forKey: userLastNameKey)
+            userEmail = UserDefaults.standard.string(forKey: userEmailKey)
             isLoggedIn = true
         }
         isLoading = false
@@ -97,8 +119,12 @@ class AuthManager: ObservableObject {
         UserDefaults.standard.removeObject(forKey: tokenKey)
         UserDefaults.standard.removeObject(forKey: userIdKey)
         UserDefaults.standard.removeObject(forKey: userNameKey)
+        UserDefaults.standard.removeObject(forKey: userLastNameKey)
+        UserDefaults.standard.removeObject(forKey: userEmailKey)
         userId = nil
         userName = nil
+        userLastName = nil
+        userEmail = nil
         isLoggedIn = false
     }
 
@@ -107,10 +133,90 @@ class AuthManager: ObservableObject {
         UserDefaults.standard.set(response.token, forKey: tokenKey)
         UserDefaults.standard.set(response.user.id, forKey: userIdKey)
         UserDefaults.standard.set(response.user.name, forKey: userNameKey)
+        UserDefaults.standard.set(response.user.lastName, forKey: userLastNameKey)
+        UserDefaults.standard.set(response.user.email, forKey: userEmailKey)
         userId = response.user.id
         userName = response.user.name
+        userLastName = response.user.lastName
+        userEmail = response.user.email
         isLoggedIn = true
-        print("Login OK - userId: \(response.user.id)")
+        print("✅ [Auth] Login OK - userId: \(response.user.id)")
+
+        // Iniciar sync após login
+        Task {
+            print("🔄 [Auth] Iniciando sync após login...")
+            await SyncManager.shared.syncAll()
+        }
+    }
+
+    // MARK: - Profile Operations
+
+    /// Atualiza nome e sobrenome do usuário
+    func updateProfile(name: String, lastName: String) async throws {
+        let response = try await authAPI.updateProfile(name: name, lastName: lastName)
+        userName = response.user.name
+        userLastName = response.user.lastName
+        UserDefaults.standard.set(response.user.name, forKey: userNameKey)
+        UserDefaults.standard.set(response.user.lastName, forKey: userLastNameKey)
+    }
+
+    /// Busca dados do usuário atual
+    func fetchProfile() async throws {
+        let user = try await authAPI.getProfile()
+        userName = user.name
+        userLastName = user.lastName
+        userEmail = user.email
+        UserDefaults.standard.set(user.name, forKey: userNameKey)
+        UserDefaults.standard.set(user.lastName, forKey: userLastNameKey)
+        UserDefaults.standard.set(user.email, forKey: userEmailKey)
+    }
+
+    // MARK: - Change Password
+
+    /// Solicita código de verificação para trocar senha
+    func requestPasswordChange() async throws {
+        guard let email = userEmail else { throw AuthError.unknown }
+        _ = try await authAPI.requestPasswordChange(email: email)
+    }
+
+    /// Verifica código e retorna token para trocar senha
+    func verifyPasswordChangeCode(code: String) async throws -> String {
+        guard let email = userEmail else { throw AuthError.unknown }
+        return try await authAPI.verifyPasswordChangeCode(email: email, code: code)
+    }
+
+    /// Troca a senha usando o token de verificação
+    func changePassword(token: String, newPassword: String) async throws {
+        _ = try await authAPI.changePassword(token: token, newPassword: newPassword)
+    }
+
+    // MARK: - Change Email
+
+    /// Solicita código de verificação no email atual
+    func requestEmailChange() async throws {
+        guard let email = userEmail else { throw AuthError.unknown }
+        _ = try await authAPI.requestEmailChange(currentEmail: email)
+    }
+
+    /// Verifica código do email atual e retorna token
+    func verifyCurrentEmailCode(code: String) async throws -> String {
+        guard let email = userEmail else { throw AuthError.unknown }
+        return try await authAPI.verifyCurrentEmailCode(email: email, code: code)
+    }
+
+    /// Define novo email e envia código de verificação para ele
+    func setNewEmail(token: String, newEmail: String) async throws -> String {
+        return try await authAPI.setNewEmail(token: token, newEmail: newEmail)
+    }
+
+    /// Verifica código do novo email e completa a troca
+    func verifyNewEmailCode(token: String, code: String) async throws {
+        let response = try await authAPI.verifyNewEmailCode(token: token, code: code)
+        // Atualizar token e email do usuário
+        APIClient.shared.setToken(response.token)
+        UserDefaults.standard.set(response.token, forKey: tokenKey)
+        userEmail = response.user.email
+        UserDefaults.standard.set(response.user.email, forKey: userEmailKey)
     }
 }
 
@@ -2089,6 +2195,17 @@ struct CreditCardDetailView: View {
 
 struct ProfileView: View {
     @EnvironmentObject var authManager: AuthManager
+    @State private var showEditProfile = false
+    @State private var showChangePassword = false
+    @State private var showChangeEmail = false
+
+    private var displayName: String {
+        let name = authManager.userName ?? "Usuario"
+        if let lastName = authManager.userLastName, !lastName.isEmpty {
+            return "\(name) \(lastName)"
+        }
+        return name
+    }
 
     var body: some View {
         ZStack {
@@ -2116,10 +2233,16 @@ struct ProfileView: View {
                         }
 
                         VStack(spacing: 4) {
-                            Text(authManager.userName ?? "Usuário")
+                            Text(displayName)
                                 .font(.title2)
                                 .fontWeight(.bold)
                                 .foregroundColor(AppColors.textPrimary)
+
+                            if let email = authManager.userEmail {
+                                Text(email)
+                                    .font(.caption)
+                                    .foregroundColor(AppColors.textSecondary)
+                            }
 
                             HStack(spacing: 6) {
                                 Circle()
@@ -2130,6 +2253,7 @@ struct ProfileView: View {
                                     .font(.subheadline)
                                     .foregroundColor(AppColors.accentGreen)
                             }
+                            .padding(.top, 4)
                         }
                     }
                     .padding(.top, 20)
@@ -2137,28 +2261,31 @@ struct ProfileView: View {
 
                     // Seção Configurações
                     VStack(alignment: .leading, spacing: 12) {
-                        SectionHeader(title: "Configurações")
+                        SectionHeader(title: "Configuracoes")
 
                         VStack(spacing: 8) {
                             SettingsCard(
                                 icon: "person.fill",
                                 title: "Editar perfil",
-                                subtitle: "Nome e foto",
-                                iconColor: .blue
+                                subtitle: "Nome e sobrenome",
+                                iconColor: .blue,
+                                action: { showEditProfile = true }
                             )
 
                             SettingsCard(
                                 icon: "lock.fill",
                                 title: "Trocar senha",
                                 subtitle: "Alterar sua senha",
-                                iconColor: .orange
+                                iconColor: .orange,
+                                action: { showChangePassword = true }
                             )
 
                             SettingsCard(
                                 icon: "envelope.fill",
                                 title: "Trocar email",
                                 subtitle: "Alterar seu email",
-                                iconColor: .purple
+                                iconColor: .purple,
+                                action: { showChangeEmail = true }
                             )
                         }
                     }
@@ -2210,6 +2337,25 @@ struct ProfileView: View {
                 }
                 .padding()
             }
+        }
+        .sheet(isPresented: $showEditProfile) {
+            NavigationStack {
+                EditProfileView()
+            }
+        }
+        .sheet(isPresented: $showChangePassword) {
+            NavigationStack {
+                ChangePasswordView()
+            }
+        }
+        .sheet(isPresented: $showChangeEmail) {
+            NavigationStack {
+                ChangeEmailView()
+            }
+        }
+        .task {
+            // Fetch profile data on appear
+            try? await authManager.fetchProfile()
         }
     }
 }

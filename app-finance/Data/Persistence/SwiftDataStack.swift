@@ -15,24 +15,37 @@ class SwiftDataStack {
             FixedBill.self,
         ])
 
-        let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
+        // Usar migração automática para preservar dados quando o schema muda
+        let config = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: false,
+            allowsSave: true
+        )
 
         do {
+            // SwiftData faz migração automática para mudanças compatíveis
+            // (adicionar campos opcionais, etc)
             container = try ModelContainer(for: schema, configurations: [config])
+            print("✅ [SwiftData] Container criado com sucesso")
         } catch {
-            // Se falhar (provavelmente por mudança de schema), tentar deletar o banco e recriar
-            print("⚠️ [SwiftData] Erro ao criar container: \(error)")
-            print("⚠️ [SwiftData] Tentando recriar o banco de dados...")
+            print("❌ [SwiftData] Erro ao criar container: \(error)")
 
-            // Deletar arquivos do banco de dados
-            Self.deleteDatabase()
-
-            // Tentar novamente
+            // Tentar criar sem configuração customizada como fallback
             do {
-                container = try ModelContainer(for: schema, configurations: [config])
-                print("✅ [SwiftData] Banco de dados recriado com sucesso")
+                container = try ModelContainer(for: schema)
+                print("✅ [SwiftData] Container criado com configuração padrão")
             } catch {
-                fatalError("Não foi possível criar ModelContainer mesmo após reset: \(error)")
+                print("❌ [SwiftData] Fallback falhou, resetando banco...")
+
+                // Reset do banco em desenvolvimento - dados serão resincronizados do servidor
+                Self.deleteDatabase()
+
+                do {
+                    container = try ModelContainer(for: schema, configurations: [config])
+                    print("✅ [SwiftData] Container criado após reset")
+                } catch {
+                    fatalError("Não foi possível criar ModelContainer após reset: \(error)")
+                }
             }
         }
     }
@@ -41,25 +54,20 @@ class SwiftDataStack {
         container.mainContext
     }
 
+    /// Deleta o arquivo do banco de dados (apenas para desenvolvimento)
     private static func deleteDatabase() {
         let fileManager = FileManager.default
-
         guard let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first else {
             return
         }
 
-        // SwiftData usa arquivos .store por padrão
-        let possibleFiles = [
-            "default.store",
-            "default.store-shm",
-            "default.store-wal"
-        ]
+        let dbURL = appSupport.appendingPathComponent("default.store")
+        let shmURL = appSupport.appendingPathComponent("default.store-shm")
+        let walURL = appSupport.appendingPathComponent("default.store-wal")
 
-        for fileName in possibleFiles {
-            let fileURL = appSupport.appendingPathComponent(fileName)
-            try? fileManager.removeItem(at: fileURL)
+        for url in [dbURL, shmURL, walURL] {
+            try? fileManager.removeItem(at: url)
+            print("🗑️ [SwiftData] Removido: \(url.lastPathComponent)")
         }
-
-        print("🗑️ [SwiftData] Arquivos do banco deletados")
     }
 }

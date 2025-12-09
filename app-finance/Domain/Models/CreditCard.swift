@@ -324,6 +324,7 @@ struct AvailableBankCards {
 @Model
 final class CreditCard: Identifiable {
     @Attribute(.unique) var id: String
+    var serverId: String?  // ID do servidor (MongoDB)
     var userId: String
     var cardName: String           // Nome personalizado do cartão
     var holderName: String         // Nome impresso no cartão
@@ -338,9 +339,13 @@ final class CreditCard: Identifiable {
     var displayOrder: Int
     var createdAt: Date
     var updatedAt: Date
+    var syncStatus: String  // SyncStatus.rawValue
+    var lastSyncAttempt: Date?
+    var syncError: String?
 
     init(
         id: String = UUID().uuidString,
+        serverId: String? = nil,
         userId: String,
         cardName: String,
         holderName: String,
@@ -354,9 +359,13 @@ final class CreditCard: Identifiable {
         isActive: Bool = true,
         displayOrder: Int = 0,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        syncStatus: SyncStatus = .pending,
+        lastSyncAttempt: Date? = nil,
+        syncError: String? = nil
     ) {
         self.id = id
+        self.serverId = serverId
         self.userId = userId
         self.cardName = cardName
         self.holderName = holderName
@@ -371,6 +380,38 @@ final class CreditCard: Identifiable {
         self.displayOrder = displayOrder
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.syncStatus = syncStatus.rawValue
+        self.lastSyncAttempt = lastSyncAttempt
+        self.syncError = syncError
+    }
+
+    // MARK: - Sync Properties
+
+    var syncStatusEnum: SyncStatus {
+        get { SyncStatus(rawValue: syncStatus) ?? .pending }
+        set { syncStatus = newValue.rawValue }
+    }
+
+    var isPendingSync: Bool {
+        syncStatusEnum == .pending || syncStatusEnum == .pendingDelete
+    }
+
+    func markAsSynced(serverId: String) {
+        self.serverId = serverId
+        self.syncStatusEnum = .synced
+        self.syncError = nil
+        self.lastSyncAttempt = Date()
+    }
+
+    func markAsModified() {
+        self.updatedAt = Date()
+        if syncStatusEnum == .synced {
+            self.syncStatusEnum = .pending
+        }
+    }
+
+    func markForDeletion() {
+        self.syncStatusEnum = .pendingDelete
     }
 
     // MARK: - Computed Properties

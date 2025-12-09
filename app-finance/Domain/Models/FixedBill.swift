@@ -7,6 +7,7 @@ import SwiftUI
 @Model
 final class FixedBill: Identifiable {
     @Attribute(.unique) var id: String
+    var serverId: String?  // ID do servidor (MongoDB)
     var userId: String
     var name: String
     var amount: Decimal
@@ -16,6 +17,9 @@ final class FixedBill: Identifiable {
     var notes: String?
     var createdAt: Date
     var updatedAt: Date
+    var syncStatus: String  // SyncStatus.rawValue
+    var lastSyncAttempt: Date?
+    var syncError: String?
 
     // Custom category fields (used when category == .custom)
     var customCategoryName: String?
@@ -28,6 +32,7 @@ final class FixedBill: Identifiable {
 
     init(
         id: String = UUID().uuidString,
+        serverId: String? = nil,
         userId: String,
         name: String,
         amount: Decimal,
@@ -37,6 +42,9 @@ final class FixedBill: Identifiable {
         notes: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
+        syncStatus: SyncStatus = .pending,
+        lastSyncAttempt: Date? = nil,
+        syncError: String? = nil,
         customCategoryName: String? = nil,
         customCategoryIcon: String? = nil,
         customCategoryColorHex: String? = nil,
@@ -44,6 +52,7 @@ final class FixedBill: Identifiable {
         paidInstallments: Int? = nil
     ) {
         self.id = id
+        self.serverId = serverId
         self.userId = userId
         self.name = name
         self.amount = amount
@@ -53,11 +62,43 @@ final class FixedBill: Identifiable {
         self.notes = notes
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.syncStatus = syncStatus.rawValue
+        self.lastSyncAttempt = lastSyncAttempt
+        self.syncError = syncError
         self.customCategoryName = customCategoryName
         self.customCategoryIcon = customCategoryIcon
         self.customCategoryColorHex = customCategoryColorHex
         self.totalInstallments = totalInstallments
         self.paidInstallments = paidInstallments
+    }
+
+    // MARK: - Sync Properties
+
+    var syncStatusEnum: SyncStatus {
+        get { SyncStatus(rawValue: syncStatus) ?? .pending }
+        set { syncStatus = newValue.rawValue }
+    }
+
+    var isPendingSync: Bool {
+        syncStatusEnum == .pending || syncStatusEnum == .pendingDelete
+    }
+
+    func markAsSynced(serverId: String) {
+        self.serverId = serverId
+        self.syncStatusEnum = .synced
+        self.syncError = nil
+        self.lastSyncAttempt = Date()
+    }
+
+    func markAsModified() {
+        self.updatedAt = Date()
+        if syncStatusEnum == .synced {
+            self.syncStatusEnum = .pending
+        }
+    }
+
+    func markForDeletion() {
+        self.syncStatusEnum = .pendingDelete
     }
 }
 
@@ -130,6 +171,24 @@ enum FixedBillCategory: String, Codable, CaseIterable {
         case .loan: return "#6366F1"         // indigo
         case .other: return "#6B7280"        // gray
         case .custom: return "#14B8A6"       // teal
+        }
+    }
+
+    /// API value (English identifier for backend)
+    var apiValue: String {
+        switch self {
+        case .housing: return "housing"
+        case .utilities: return "utilities"
+        case .health: return "health"
+        case .education: return "education"
+        case .transport: return "transport"
+        case .entertainment: return "entertainment"
+        case .subscription: return "subscription"
+        case .insurance: return "insurance"
+        case .financing: return "financing"
+        case .loan: return "loan"
+        case .other: return "other"
+        case .custom: return "custom"
         }
     }
 }
