@@ -6,7 +6,7 @@ struct TransactionsView: View {
     let transactions: [TransactionItemViewModel]
     let currentMonth: MonthRef
     let onDelete: (String) -> Void
-    var onEdit: ((String, String, Decimal, Date, TransactionType, String?, String?) -> Void)? = nil
+    var onEdit: ((String, String, Decimal, Date, TransactionType, String?, String?, String?) -> Void)? = nil
 
     @State private var selectedTransaction: TransactionItemViewModel?
 
@@ -235,8 +235,8 @@ struct TransactionsView: View {
                     onDelete(transaction.id)
                     selectedTransaction = nil
                 },
-                onEdit: onEdit != nil ? { desc, amount, date, type, categoryId, notes in
-                    onEdit?(transaction.id, desc, amount, date, type, categoryId, notes)
+                onEdit: onEdit != nil ? { desc, amount, date, type, categoryId, notes, paymentMethod in
+                    onEdit?(transaction.id, desc, amount, date, type, categoryId, notes, paymentMethod)
                     selectedTransaction = nil
                 } : nil
             )

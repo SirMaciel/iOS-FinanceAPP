@@ -505,7 +505,7 @@ struct CreditCardView: View {
                     deleteTransaction(transaction.id)
                     selectedTransaction = nil
                 },
-                onEdit: { desc, amount, date, type, categoryId, notes in
+                onEdit: { desc, amount, date, type, categoryId, notes, paymentMethod in
                     updateTransaction(
                         transactionId: transaction.id,
                         description: desc,
@@ -513,7 +513,8 @@ struct CreditCardView: View {
                         date: date,
                         type: type,
                         categoryId: categoryId,
-                        notes: notes
+                        notes: notes,
+                        paymentMethod: paymentMethod
                     )
                     selectedTransaction = nil
                 }
@@ -614,12 +615,12 @@ struct CreditCardView: View {
 
                 ZStack {
                     Circle()
-                        .fill(Color.purple.opacity(0.1))
+                        .fill(AppColors.accentBlue.opacity(0.1))
                         .frame(width: 48, height: 48)
 
                     Image(systemName: "creditcard.fill")
                         .font(.system(size: 20))
-                        .foregroundColor(.purple)
+                        .foregroundColor(AppColors.accentBlue)
                 }
             }
 
@@ -1723,7 +1724,8 @@ struct CreditCardView: View {
             longitude: transaction.longitude,
             cityName: transaction.cityName,
             notes: transaction.notes,
-            categoryId: transaction.categoryId
+            categoryId: transaction.categoryId,
+            paymentMethod: transaction.paymentMethod
         )
     }
 
@@ -1740,7 +1742,8 @@ struct CreditCardView: View {
         date: Date,
         type: TransactionType,
         categoryId: String?,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) {
         guard let transaction = cardTransactions.first(where: { $0.id == transactionId }) else { return }
         transactionRepo.updateTransaction(
@@ -1750,7 +1753,8 @@ struct CreditCardView: View {
             date: date,
             type: type,
             categoryId: categoryId,
-            notes: notes
+            notes: notes,
+            paymentMethod: paymentMethod
         )
         loadTransactions()
     }

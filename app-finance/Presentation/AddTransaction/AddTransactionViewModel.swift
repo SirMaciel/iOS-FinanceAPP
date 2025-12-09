@@ -372,7 +372,8 @@ class AddTransactionViewModel: ObservableObject {
             longitude: saveLocation ? longitude : nil,
             cityName: cityName,
             installments: installmentCount,
-            notes: notes.isEmpty ? nil : notes
+            notes: notes.isEmpty ? nil : notes,
+            paymentMethod: type == .expense ? paymentMethod.rawValue : nil
         )
 
         // Haptic feedback

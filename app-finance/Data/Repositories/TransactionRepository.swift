@@ -88,7 +88,8 @@ final class TransactionRepository: ObservableObject {
         cityName: String? = nil,
         installments: Int? = nil,
         startingInstallment: Int? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) -> Transaction {
         let transaction = Transaction(
             userId: userId,
@@ -105,7 +106,8 @@ final class TransactionRepository: ObservableObject {
             cityName: cityName,
             installments: installments,
             startingInstallment: startingInstallment,
-            notes: notes
+            notes: notes,
+            paymentMethod: paymentMethod
         )
 
         context.insert(transaction)
@@ -154,7 +156,8 @@ final class TransactionRepository: ObservableObject {
         latitude: Double? = nil,
         longitude: Double? = nil,
         cityName: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) {
         if let description = description { transaction.desc = description }
         if let amount = amount { transaction.amount = amount }
@@ -166,6 +169,7 @@ final class TransactionRepository: ObservableObject {
         if longitude != nil { transaction.longitude = longitude }
         if cityName != nil { transaction.cityName = cityName }
         if notes != nil { transaction.notes = notes }
+        if paymentMethod != nil { transaction.paymentMethod = paymentMethod }
 
         transaction.markAsModified()
 

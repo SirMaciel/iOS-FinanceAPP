@@ -216,7 +216,8 @@ class AllTransactionsViewModel: ObservableObject {
                 longitude: tx.longitude,
                 cityName: tx.cityName,
                 notes: tx.notes,
-                categoryId: tx.categoryId
+                categoryId: tx.categoryId,
+                paymentMethod: tx.paymentMethod
             )
         }
     }
@@ -364,7 +365,8 @@ class AllTransactionsViewModel: ObservableObject {
         date: Date,
         type: TransactionType,
         categoryId: String?,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) async {
         guard let transaction = transactions.first(where: { $0.id == transactionId }) else {
             return
@@ -377,7 +379,8 @@ class AllTransactionsViewModel: ObservableObject {
             date: date,
             type: type,
             categoryId: categoryId,
-            notes: notes
+            notes: notes,
+            paymentMethod: paymentMethod
         )
 
         loadData()
@@ -428,7 +431,7 @@ struct AllTransactionsView: View {
                     }
                     selectedTransaction = nil
                 },
-                onEdit: { desc, amount, date, type, categoryId, notes in
+                onEdit: { desc, amount, date, type, categoryId, notes, paymentMethod in
                     Task {
                         await viewModel.updateTransaction(
                             transactionId: transaction.id,
@@ -437,7 +440,8 @@ struct AllTransactionsView: View {
                             date: date,
                             type: type,
                             categoryId: categoryId,
-                            notes: notes
+                            notes: notes,
+                            paymentMethod: paymentMethod
                         )
                     }
                     selectedTransaction = nil

@@ -44,6 +44,9 @@ final class Transaction: Identifiable {
     // Notes/Observation (optional)
     var notes: String?
 
+    // Payment Method (cash, pix, debit, credit)
+    var paymentMethod: String?
+
     init(
         id: String = UUID().uuidString,
         serverId: String? = nil,
@@ -68,7 +71,8 @@ final class Transaction: Identifiable {
         cityName: String? = nil,
         installments: Int? = nil,
         startingInstallment: Int? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -94,6 +98,7 @@ final class Transaction: Identifiable {
         self.installments = installments
         self.startingInstallment = startingInstallment
         self.notes = notes
+        self.paymentMethod = paymentMethod
     }
 
     var syncStatusEnum: SyncStatus {

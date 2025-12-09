@@ -306,7 +306,8 @@ class MonthlySummaryViewModel: ObservableObject {
                 longitude: tx.longitude,
                 cityName: tx.cityName,
                 notes: tx.notes,
-                categoryId: tx.categoryId
+                categoryId: tx.categoryId,
+                paymentMethod: tx.paymentMethod
             )
         }
     }
@@ -518,7 +519,8 @@ class MonthlySummaryViewModel: ObservableObject {
         date: Date,
         type: TransactionType,
         categoryId: String?,
-        notes: String? = nil
+        notes: String? = nil,
+        paymentMethod: String? = nil
     ) async {
         // Encontrar transação
         guard let transaction = transactions.first(where: { $0.id == transactionId }) else {
@@ -533,7 +535,8 @@ class MonthlySummaryViewModel: ObservableObject {
             date: date,
             type: type,
             categoryId: categoryId,
-            notes: notes
+            notes: notes,
+            paymentMethod: paymentMethod
         )
 
         // Atualizar UI imediatamente
@@ -625,6 +628,8 @@ struct TransactionItemViewModel: Identifiable {
     var notes: String?
     // Category ID for filtering
     var categoryId: String?
+    // Payment Method
+    var paymentMethod: String?
 }
 
 struct CreditCardSpending: Identifiable {

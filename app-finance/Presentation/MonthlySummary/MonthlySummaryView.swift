@@ -148,7 +148,7 @@ struct MonthlySummaryView: View {
                     }
                     selectedTransaction = nil
                 },
-                onEdit: { desc, amount, date, type, categoryId, notes in
+                onEdit: { desc, amount, date, type, categoryId, notes, paymentMethod in
                     Task {
                         await viewModel.updateTransaction(
                             transactionId: transaction.id,
@@ -157,7 +157,8 @@ struct MonthlySummaryView: View {
                             date: date,
                             type: type,
                             categoryId: categoryId,
-                            notes: notes
+                            notes: notes,
+                            paymentMethod: paymentMethod
                         )
                     }
                     selectedTransaction = nil
@@ -172,11 +173,26 @@ struct MonthlySummaryView: View {
             })
         }
         .sheet(item: $selectedInstallment) { installment in
-            InstallmentSummaryDetailSheet(
+            SummaryInstallmentDetailSheet(
                 installment: installment,
+                categories: viewModel.categories,
                 onDelete: {
                     Task {
                         await viewModel.deleteTransaction(installment.transactionId)
+                    }
+                    selectedInstallment = nil
+                },
+                onUpdate: { transactionId, description, totalAmount, categoryId in
+                    Task {
+                        await viewModel.updateTransaction(
+                            transactionId: transactionId,
+                            description: description,
+                            amount: totalAmount,
+                            date: Date(),
+                            type: .expense,
+                            categoryId: categoryId,
+                            notes: nil
+                        )
                     }
                     selectedInstallment = nil
                 }
@@ -1693,7 +1709,7 @@ struct TransactionDetailSheet: View {
     @Environment(\.dismiss) private var dismiss
     let transaction: TransactionItemViewModel
     let onDelete: () -> Void
-    var onEdit: ((String, Decimal, Date, TransactionType, String?, String?) -> Void)? = nil
+    var onEdit: ((String, Decimal, Date, TransactionType, String?, String?, String?) -> Void)? = nil
 
     @State private var showingEditSheet = false
 
@@ -1796,6 +1812,36 @@ struct TransactionDetailSheet: View {
                                             .foregroundColor(AppColors.textSecondary)
 
                                         Text(categoryName)
+                                            .font(.subheadline)
+                                            .fontWeight(.semibold)
+                                            .foregroundColor(AppColors.textPrimary)
+                                    }
+
+                                    Spacer()
+                                }
+                            }
+
+                            // Payment Method
+                            if let paymentMethod = transaction.paymentMethod, transaction.type == .expense {
+                                Divider().background(AppColors.cardBorder)
+
+                                HStack(spacing: 12) {
+                                    ZStack {
+                                        Circle()
+                                            .fill(paymentMethodColor(paymentMethod).opacity(0.15))
+                                            .frame(width: 36, height: 36)
+
+                                        Image(systemName: paymentMethodIcon(paymentMethod))
+                                            .font(.system(size: 14))
+                                            .foregroundColor(paymentMethodColor(paymentMethod))
+                                    }
+
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Meio de Pagamento")
+                                            .font(.caption)
+                                            .foregroundColor(AppColors.textSecondary)
+
+                                        Text(paymentMethodDisplayName(paymentMethod))
                                             .font(.subheadline)
                                             .fontWeight(.semibold)
                                             .foregroundColor(AppColors.textPrimary)
@@ -1971,8 +2017,8 @@ struct TransactionDetailSheet: View {
         .sheet(isPresented: $showingEditSheet) {
             EditTransactionSheet(
                 transaction: transaction,
-                onSave: { desc, amount, date, type, categoryId, notes in
-                    onEdit?(desc, amount, date, type, categoryId, notes)
+                onSave: { desc, amount, date, type, categoryId, notes, paymentMethod in
+                    onEdit?(desc, amount, date, type, categoryId, notes, paymentMethod)
                     showingEditSheet = false
                     dismiss()
                 }
@@ -2023,6 +2069,36 @@ struct TransactionDetailSheet: View {
             MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDefault
         ])
     }
+
+    private func paymentMethodDisplayName(_ rawValue: String) -> String {
+        switch rawValue {
+        case PaymentMethod.cash.rawValue: return "Dinheiro"
+        case PaymentMethod.pix.rawValue: return "Pix"
+        case PaymentMethod.debit.rawValue: return "Débito"
+        case PaymentMethod.credit.rawValue: return "Cartão de Crédito"
+        default: return rawValue
+        }
+    }
+
+    private func paymentMethodIcon(_ rawValue: String) -> String {
+        switch rawValue {
+        case PaymentMethod.cash.rawValue: return "banknote"
+        case PaymentMethod.pix.rawValue: return "qrcode"
+        case PaymentMethod.debit.rawValue: return "creditcard"
+        case PaymentMethod.credit.rawValue: return "creditcard.fill"
+        default: return "creditcard"
+        }
+    }
+
+    private func paymentMethodColor(_ rawValue: String) -> Color {
+        switch rawValue {
+        case PaymentMethod.cash.rawValue: return .green
+        case PaymentMethod.pix.rawValue: return .cyan
+        case PaymentMethod.debit.rawValue: return .orange
+        case PaymentMethod.credit.rawValue: return .purple
+        default: return .purple
+        }
+    }
 }
 
 // MARK: - Edit Transaction Sheet
@@ -2032,7 +2108,7 @@ struct EditTransactionSheet: View {
     @EnvironmentObject var authManager: AuthManager
 
     let transaction: TransactionItemViewModel
-    let onSave: (String, Decimal, Date, TransactionType, String?, String?) -> Void
+    let onSave: (String, Decimal, Date, TransactionType, String?, String?, String?) -> Void
 
     @State private var name: String
     @State private var amountText: String
@@ -2041,6 +2117,9 @@ struct EditTransactionSheet: View {
     @State private var selectedCategory: Category?
     @State private var notes: String
     @State private var categories: [Category] = []
+    @State private var paymentMethod: PaymentMethod
+    @State private var selectedCreditCard: CreditCard?
+    @State private var creditCards: [CreditCard] = []
 
     // Location states
     @State private var locationName: String
@@ -2054,9 +2133,10 @@ struct EditTransactionSheet: View {
     @State private var showingCategoryManagement = false
 
     private let categoryRepo = CategoryRepository.shared
+    private let creditCardRepo = CreditCardRepository.shared
     private let locationManager = LocationManager()
 
-    init(transaction: TransactionItemViewModel, onSave: @escaping (String, Decimal, Date, TransactionType, String?, String?) -> Void) {
+    init(transaction: TransactionItemViewModel, onSave: @escaping (String, Decimal, Date, TransactionType, String?, String?, String?) -> Void) {
         self.transaction = transaction
         self.onSave = onSave
         _name = State(initialValue: transaction.description)
@@ -2067,6 +2147,23 @@ struct EditTransactionSheet: View {
         _locationName = State(initialValue: transaction.locationName ?? "")
         _latitude = State(initialValue: transaction.latitude)
         _longitude = State(initialValue: transaction.longitude)
+
+        // Parse payment method from saved value
+        if let savedMethod = transaction.paymentMethod {
+            if savedMethod == PaymentMethod.cash.rawValue {
+                _paymentMethod = State(initialValue: .cash)
+            } else if savedMethod == PaymentMethod.pix.rawValue {
+                _paymentMethod = State(initialValue: .pix)
+            } else if savedMethod == PaymentMethod.debit.rawValue {
+                _paymentMethod = State(initialValue: .debit)
+            } else if savedMethod == PaymentMethod.credit.rawValue {
+                _paymentMethod = State(initialValue: .credit)
+            } else {
+                _paymentMethod = State(initialValue: .cash)
+            }
+        } else {
+            _paymentMethod = State(initialValue: .cash)
+        }
     }
 
     private var amount: Decimal {
@@ -2100,7 +2197,7 @@ struct EditTransactionSheet: View {
                     Spacer()
 
                     Button {
-                        onSave(name, amount, date, type, selectedCategory?.id, notes.isEmpty ? nil : notes)
+                        onSave(name, amount, date, type, selectedCategory?.id, notes.isEmpty ? nil : notes, type == .expense ? paymentMethod.rawValue : nil)
                     } label: {
                         Text("Salvar")
                             .fontWeight(.semibold)
@@ -2234,6 +2331,19 @@ struct EditTransactionSheet: View {
                         }
                         .padding(.horizontal)
 
+                        // Meio de Pagamento (apenas para despesas)
+                        if type == .expense {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Forma de Pagamento")
+                                    .font(.caption)
+                                    .fontWeight(.medium)
+                                    .foregroundColor(AppColors.textSecondary)
+
+                                editPaymentMethodPicker
+                            }
+                            .padding(.horizontal)
+                        }
+
                         // Localização
                         editLocationSection
                             .padding(.horizontal)
@@ -2266,6 +2376,7 @@ struct EditTransactionSheet: View {
         }
         .onAppear {
             loadCategories()
+            loadCreditCards()
         }
         .sheet(isPresented: $showingCategoryManagement) {
             CategoryManagementSheet(
@@ -2544,6 +2655,152 @@ struct EditTransactionSheet: View {
         formatter.maximumFractionDigits = 2
 
         return formatter.string(from: NSNumber(value: reais)) ?? ""
+    }
+
+    private func loadCreditCards() {
+        let userId = UserDefaults.standard.string(forKey: "user_id") ?? ""
+        creditCards = creditCardRepo.getCreditCards(userId: userId)
+    }
+
+    private var editPaymentMethodColor: Color {
+        switch paymentMethod {
+        case .cash: return .green
+        case .pix: return .cyan
+        case .debit: return .orange
+        case .credit: return .purple
+        }
+    }
+
+    private func cardColor(for card: CreditCard) -> Color {
+        if let match = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+            if let color = Color(hex: match.cardColor) {
+                return color
+            }
+        }
+        return card.cardTypeEnum.gradientColors.first ?? .purple
+    }
+
+    private func miniCardIcon(for card: CreditCard) -> some View {
+        let colors: [Color] = {
+            if let match = AvailableBankCards.cards(forBank: card.bankEnum).first(where: { $0.tier == card.cardTypeEnum }) {
+                if let color = Color(hex: match.cardColor) {
+                    return [color, color.opacity(0.7)]
+                }
+            }
+            return card.cardTypeEnum.gradientColors
+        }()
+
+        return ZStack {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(
+                    LinearGradient(
+                        colors: colors,
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+                .frame(width: 28, height: 18)
+                .shadow(color: .black.opacity(0.15), radius: 2, x: 0, y: 1)
+
+            // Chip
+            RoundedRectangle(cornerRadius: 1)
+                .fill(LinearGradient(colors: [.yellow.opacity(0.8), .orange.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                .frame(width: 5, height: 3.5)
+                .offset(x: -7, y: 2)
+        }
+    }
+
+    private var editPaymentMethodPicker: some View {
+        Menu {
+            // Opções básicas: Dinheiro, Pix, Débito
+            Button(action: {
+                paymentMethod = .cash
+                selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.cash.icon)
+                    Text(PaymentMethod.cash.rawValue)
+                    if paymentMethod == .cash {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            Button(action: {
+                paymentMethod = .pix
+                selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.pix.icon)
+                    Text(PaymentMethod.pix.rawValue)
+                    if paymentMethod == .pix {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            Button(action: {
+                paymentMethod = .debit
+                selectedCreditCard = nil
+            }) {
+                HStack {
+                    Image(systemName: PaymentMethod.debit.icon)
+                    Text(PaymentMethod.debit.rawValue)
+                    if paymentMethod == .debit {
+                        Image(systemName: "checkmark")
+                    }
+                }
+            }
+
+            // Cartões de crédito
+            if !creditCards.isEmpty {
+                Divider()
+
+                // Seção de Cartões de Crédito
+                ForEach(creditCards, id: \.id) { card in
+                    Button(action: {
+                        paymentMethod = .credit
+                        selectedCreditCard = card
+                    }) {
+                        HStack {
+                            Image(systemName: "creditcard.fill")
+                                .foregroundColor(cardColor(for: card))
+                            Text(card.cardName)
+                            if paymentMethod == .credit && selectedCreditCard?.id == card.id {
+                                Image(systemName: "checkmark")
+                            }
+                        }
+                    }
+                }
+            }
+        } label: {
+            HStack {
+                // Ícone baseado no método selecionado
+                if paymentMethod == .credit, let card = selectedCreditCard {
+                    miniCardIcon(for: card)
+                    Text(card.cardName)
+                        .foregroundColor(AppColors.textPrimary)
+                } else {
+                    Image(systemName: paymentMethod.icon)
+                        .foregroundColor(editPaymentMethodColor)
+                    Text(paymentMethod.rawValue)
+                        .foregroundColor(AppColors.textPrimary)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption)
+                    .foregroundColor(AppColors.textSecondary)
+            }
+            .padding(16)
+            .background(AppColors.bgSecondary)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(AppColors.cardBorder, lineWidth: 1)
+            )
+            .cornerRadius(16)
+        }
     }
 }
 

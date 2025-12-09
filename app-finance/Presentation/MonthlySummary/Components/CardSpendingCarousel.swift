@@ -4,14 +4,14 @@ struct CardSpendingCarousel: View {
     let cardSpendings: [CreditCardSpending]
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
             SectionHeader(title: "Gastos do Cartão")
-            
+
             if cardSpendings.isEmpty {
                 Text("Nenhum gasto com cartão neste mês")
                     .font(.subheadline)
                     .foregroundColor(AppColors.textSecondary)
-                    .padding(.leading)
+                    .padding(.leading, 16)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 12) {
@@ -19,6 +19,8 @@ struct CardSpendingCarousel: View {
                             CardSpendingSummaryCard(spending: spending)
                         }
                     }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 4)
                 }
             }
         }
@@ -81,5 +83,6 @@ private struct CardSpendingSummaryCard: View {
             }
             .frame(width: 160)
         }
+        .shadow(color: .black.opacity(0.04), radius: 4, x: 0, y: 2)
     }
 }
