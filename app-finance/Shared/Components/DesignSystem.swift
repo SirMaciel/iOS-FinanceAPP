@@ -1,52 +1,42 @@
 import SwiftUI
 import UIKit
 
-// MARK: - App Colors
+// MARK: - App Colors (Light Theme / Minimalist)
 
 struct AppColors {
-    // Backgrounds - Deep Matte Theme
-    static let bgPrimary = Color(hex: "09090B") ?? .black // Zinc 950
-    static let bgSecondary = Color(hex: "18181B") ?? .black // Zinc 900
+    // Backgrounds
+    static let bgPrimary = Color(hex: "F8F9FA") ?? .white // Zinc 50 (Main background)
+    static let bgSecondary = Color(hex: "FFFFFF") ?? .white // Pure White (Cards)
+    static let bgTertiary = Color(hex: "E9ECEF") ?? .gray // Zinc 200 (Inputs/Sections)
     
-    // Surface / Cards
-    static let cardBackground = Color(hex: "27272A")?.opacity(0.6) ?? .gray.opacity(0.2) // Zinc 800
-    static let cardBorder = Color.white.opacity(0.08)
+    // Text / Ink
+    static let textPrimary = Color(hex: "111827") ?? .black // Gray 900 (Main text)
+    static let textSecondary = Color(hex: "6B7280") ?? .gray // Gray 500 (Subtitles)
+    static let textTertiary = Color(hex: "9CA3AF") ?? .gray // Gray 400 (Placeholders)
     
-    // Text
-    static let textPrimary = Color(hex: "FAFAFA") ?? .white // Zinc 50
-    static let textSecondary = Color(hex: "A1A1AA") ?? .gray // Zinc 400
-    static let textTertiary = Color(hex: "52525B") ?? .gray // Zinc 600
-    
-    // Accents - Sophisticated, not neon
-    static let accentBlue = Color(hex: "3B82F6") ?? .blue // Blue 500
-    static let accentPurple = Color(hex: "8B5CF6") ?? .purple // Violet 500
-    static let accentGreen = Color(hex: "10B981") ?? .green // Emerald 500
-    static let accentRed = Color(hex: "EF4444") ?? .red // Red 500
+    // Accents
+    static let accentBlue = Color(hex: "2563EB") ?? .blue // Blue 600
+    static let accentPurple = Color(hex: "7C3AED") ?? .purple // Violet 600
+    static let accentGreen = Color(hex: "059669") ?? .green // Emerald 600
+    static let accentRed = Color(hex: "DC2626") ?? .red // Red 600
     static let accentOrange = Color(hex: "F97316") ?? .orange // Orange 500
     
-    // Special
-    static let income = Color(hex: "34D399") ?? .green // Emerald 400
-    static let expense = Color(hex: "F87171") ?? .red // Red 400
+    // Semantic
+    static let income = Color(hex: "10B981") ?? .green // Emerald 500
+    static let expense = Color(hex: "EF4444") ?? .red // Red 500
+    static let cardBorder = Color.black.opacity(0.05)
     
     // Gradients
     static var primaryGradient: LinearGradient {
         LinearGradient(
-            colors: [accentBlue, accentPurple],
+            colors: [accentBlue, Color(hex: "1D4ED8") ?? .blue], // Blue 600 -> Blue 700
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
     }
-    
-    static var backgroundGradient: LinearGradient {
-        LinearGradient(
-            colors: [bgPrimary, bgSecondary],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
 }
 
-// MARK: - Extensions for Hex Colors
+// MARK: - Extensions
 
 extension Color {
     init?(hex: String) {
@@ -91,77 +81,42 @@ extension Color {
     }
 
     func toHex() -> String? {
-        guard let cgColor = UIColor(self).cgColor.converted(
-            to: CGColorSpace(name: CGColorSpace.sRGB)!,
-            intent: .defaultIntent,
-            options: nil
-        ) else {
-            // Fallback for colors that can't be converted
-            let uic = UIColor(self)
-            var r: CGFloat = 0
-            var g: CGFloat = 0
-            var b: CGFloat = 0
-            var a: CGFloat = 0
-            uic.getRed(&r, green: &g, blue: &b, alpha: &a)
-            return String(format: "#%02lX%02lX%02lX", lroundf(Float(r) * 255), lroundf(Float(g) * 255), lroundf(Float(b) * 255))
-        }
-
-        guard let components = cgColor.components, components.count >= 3 else {
-            return nil
-        }
-
-        let r = Float(components[0])
-        let g = Float(components[1])
-        let b = Float(components[2])
-
-        return String(format: "#%02lX%02lX%02lX", lroundf(r * 255), lroundf(g * 255), lroundf(b * 255))
+        // Simple fallback conversion
+        let uic = UIColor(self)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uic.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return String(format: "#%02lX%02lX%02lX", lroundf(Float(r) * 255), lroundf(Float(g) * 255), lroundf(Float(b) * 255))
     }
 }
 
 // MARK: - Components
 
-struct DarkBackground: View {
+struct AppBackground: View {
     var body: some View {
-        ZStack {
-            AppColors.bgPrimary
-                .ignoresSafeArea()
-            
-            // Subtle ambient gradient top-left
-            GeometryReader { proxy in
-                Circle()
-                    .fill(AppColors.accentBlue.opacity(0.1))
-                    .frame(width: proxy.size.width * 1.2)
-                    .blur(radius: 120)
-                    .offset(x: -proxy.size.width * 0.5, y: -proxy.size.height * 0.2)
-                
-                // Subtle ambient gradient bottom-right
-                Circle()
-                    .fill(AppColors.accentPurple.opacity(0.05))
-                    .frame(width: proxy.size.width)
-                    .blur(radius: 100)
-                    .offset(x: proxy.size.width * 0.4, y: proxy.size.height * 0.6)
-            }
+        AppColors.bgPrimary
             .ignoresSafeArea()
-        }
     }
 }
 
-struct DarkCard<Content: View>: View {
+struct AppCard<Content: View>: View {
     let content: Content
     var padding: CGFloat
     var corners: CGFloat
+    var shadow: Bool
     
-    init(padding: CGFloat = 20, corners: CGFloat = 24, @ViewBuilder content: () -> Content) {
+    init(padding: CGFloat = 20, corners: CGFloat = 24, shadow: Bool = true, @ViewBuilder content: () -> Content) {
         self.padding = padding
         self.corners = corners
+        self.shadow = shadow
         self.content = content()
     }
     
     var body: some View {
         content
             .padding(padding)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .clipShape(RoundedRectangle(cornerRadius: corners, style: .continuous))
+            .shadow(color: shadow ? Color.black.opacity(0.06) : .clear, radius: 12, x: 0, y: 4)
             .overlay(
                 RoundedRectangle(cornerRadius: corners, style: .continuous)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -169,7 +124,7 @@ struct DarkCard<Content: View>: View {
     }
 }
 
-struct DarkSectionHeader: View {
+struct SectionHeader: View {
     let title: String
     var actionText: String? = nil
     var action: (() -> Void)? = nil
@@ -185,7 +140,7 @@ struct DarkSectionHeader: View {
             if let actionText = actionText, let action = action {
                 Button(action: action) {
                     Text(actionText)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14, weight: .semibold))
                         .foregroundColor(AppColors.accentBlue)
                 }
             }
@@ -195,7 +150,7 @@ struct DarkSectionHeader: View {
     }
 }
 
-struct DarkButton: View {
+struct AppButton: View {
     let title: String
     var icon: String? = nil
     var style: ButtonStyle = .primary
@@ -228,11 +183,7 @@ struct DarkButton: View {
             .frame(height: 56)
             .background(backgroundView)
             .foregroundColor(foregroundColor)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
-            )
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
             .shadow(color: shadowColor, radius: style == .primary ? 8 : 0, y: 4)
         }
         .disabled(isLoading || isDisabled)
@@ -245,7 +196,7 @@ struct DarkButton: View {
         case .primary:
             AppColors.primaryGradient
         case .secondary:
-            Color.white.opacity(0.05)
+            AppColors.bgTertiary // Light gray
         case .danger:
             AppColors.accentRed.opacity(0.1)
         }
@@ -254,15 +205,8 @@ struct DarkButton: View {
     private var foregroundColor: Color {
         switch style {
         case .primary: return .white
-        case .secondary: return .white
+        case .secondary: return AppColors.textPrimary
         case .danger: return AppColors.accentRed
-        }
-    }
-    
-    private var borderColor: Color {
-        switch style {
-        case .secondary: return Color.white.opacity(0.1)
-        default: return .clear
         }
     }
     
@@ -274,7 +218,7 @@ struct DarkButton: View {
     }
 }
 
-struct DarkTextField: View {
+struct AppTextField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
@@ -284,7 +228,7 @@ struct DarkTextField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(AppColors.textTertiary)
+                .foregroundColor(AppColors.textSecondary)
                 .frame(width: 20)
 
             TextField(placeholder, text: $text)
@@ -297,12 +241,12 @@ struct DarkTextField: View {
         }
         .padding()
         .frame(height: 56)
-        .background(Color.white.opacity(0.05))
+        .background(AppColors.bgTertiary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
-struct DarkSecureField: View {
+struct AppSecureField: View {
     let icon: String
     let placeholder: String
     @Binding var text: String
@@ -311,7 +255,7 @@ struct DarkSecureField: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
-                .foregroundColor(AppColors.textTertiary)
+                .foregroundColor(AppColors.textSecondary)
                 .frame(width: 20)
 
             if isVisible {
@@ -335,14 +279,12 @@ struct DarkSecureField: View {
         }
         .padding()
         .frame(height: 56)
-        .background(Color.white.opacity(0.05))
+        .background(AppColors.bgTertiary.opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 
-// MARK: - Dark Segmented Picker
-
-struct DarkSegmentedPicker<T: Hashable>: View {
+struct AppSegmentedPicker<T: Hashable>: View {
     @Binding var selection: T
     let options: [(T, String)]
 
@@ -357,29 +299,24 @@ struct DarkSegmentedPicker<T: Hashable>: View {
                     Text(option.1)
                         .font(.subheadline)
                         .fontWeight(.medium)
-                        .foregroundColor(selection == option.0 ? .black : AppColors.textSecondary)
+                        .foregroundColor(selection == option.0 ? AppColors.textPrimary : AppColors.textSecondary)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 44)
+                        .frame(height: 40)
                         .background(
-                            selection == option.0 ? Color.white : Color.clear
+                            selection == option.0 ? AppColors.bgSecondary : Color.clear
                         )
-                        .cornerRadius(12)
+                        .cornerRadius(10)
+                        .shadow(color: selection == option.0 ? Color.black.opacity(0.05) : .clear, radius: 2, x: 0, y: 1)
                 }
             }
         }
         .padding(4)
-        .background(AppColors.cardBackground)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
+        .background(AppColors.bgTertiary)
+        .cornerRadius(14)
     }
 }
 
-// MARK: - Empty State View
-
-struct DarkEmptyState: View {
+struct AppEmptyState: View {
     let icon: String
     let title: String
     var subtitle: String? = nil
@@ -388,7 +325,7 @@ struct DarkEmptyState: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(AppColors.cardBackground)
+                    .fill(AppColors.bgTertiary)
                     .frame(width: 80, height: 80)
 
                 Image(systemName: icon)
@@ -413,35 +350,11 @@ struct DarkEmptyState: View {
     }
 }
 
-// MARK: - Loading Overlay
+// MARK: - Legacy / Helper Aliases for smoother refactor
+// (To be removed after full migration, but helpful for intermediate steps if needed)
 
-struct DarkLoadingOverlay: View {
-    var message: String = "Carregando..."
 
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-                .ignoresSafeArea()
-
-            VStack(spacing: 16) {
-                ProgressView()
-                    .scaleEffect(1.5)
-                    .tint(.white)
-
-                Text(message)
-                    .font(.headline)
-                    .foregroundColor(AppColors.textPrimary)
-            }
-            .padding(32)
-            .background(AppColors.cardBackground)
-            .cornerRadius(16)
-            .overlay(
-                RoundedRectangle(cornerRadius: 16)
-                    .stroke(AppColors.cardBorder, lineWidth: 1)
-            )
-        }
-    }
-}
+// MARK: - View Extensions
 
 extension View {
     func placeholder<Content: View>(
@@ -453,24 +366,5 @@ extension View {
             placeholder().opacity(shouldShow ? 1 : 0)
             self
         }
-    }
-}
-
-#Preview {
-    ZStack {
-        DarkBackground()
-        VStack(spacing: 20) {
-            DarkSectionHeader(title: "Overview", actionText: "See All", action: {})
-            
-            DarkCard {
-                Text("This is a sophisticated card")
-                    .foregroundColor(AppColors.textPrimary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            
-            DarkButton(title: "Primary Action", icon: "star.fill", action: {})
-            DarkButton(title: "Secondary Action", style: .secondary, action: {})
-        }
-        .padding()
     }
 }

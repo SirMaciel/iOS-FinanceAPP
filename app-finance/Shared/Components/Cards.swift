@@ -3,6 +3,8 @@ import SwiftData
 
 // MARK: - Summary Card
 
+// MARK: - Summary Card
+
 struct SummaryCard: View {
     let title: String
     let value: String
@@ -10,38 +12,33 @@ struct SummaryCard: View {
     var icon: String? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Icon
-            if let icon = icon {
-                Image(systemName: icon)
-                    .font(.system(size: 14, weight: .semibold))
-                    .foregroundColor(color)
-                    .frame(width: 28, height: 28)
-                    .background(color.opacity(0.15))
-                    .clipShape(Circle())
+        AppCard(padding: 12, corners: 16) {
+            VStack(alignment: .leading, spacing: 8) {
+                // Icon
+                if let icon = icon {
+                    Image(systemName: icon)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundColor(color)
+                        .frame(width: 28, height: 28)
+                        .background(color.opacity(0.15))
+                        .clipShape(Circle())
+                }
+
+                // Title
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundColor(AppColors.textSecondary)
+
+                // Value
+                Text(value)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
             }
-
-            // Title
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(AppColors.textSecondary)
-
-            // Value
-            Text(value)
-                .font(.system(size: 15, weight: .bold, design: .rounded))
-                .foregroundColor(AppColors.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(AppColors.cardBackground)
-        .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
     }
 }
 
@@ -57,8 +54,8 @@ struct TransactionRowCard: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(transaction.categoryColor.opacity(0.15))
                     .frame(width: 44, height: 44)
-                
-                Image(systemName: "tag.fill") // Placeholder icon, ideally category.iconName
+
+                Image(systemName: transaction.categoryIcon)
                     .font(.system(size: 16))
                     .foregroundColor(transaction.categoryColor)
             }
@@ -113,53 +110,48 @@ struct CategoryCard: View {
 
     var body: some View {
         Button(action: { onTap?() }) {
-            HStack(spacing: 16) {
-                // Ícone com cor
-                ZStack {
-                    Circle()
-                        .fill(Color(hex: category.colorHex) ?? .gray)
-                        .frame(width: 44, height: 44)
-                        .shadow(color: (Color(hex: category.colorHex) ?? .gray).opacity(0.3), radius: 8, x: 0, y: 4)
+            AppCard(padding: 16, corners: 20) {
+                HStack(spacing: 16) {
+                    // Ícone com cor
+                    ZStack {
+                        Circle()
+                            .fill(Color(hex: category.colorHex) ?? .gray)
+                            .frame(width: 44, height: 44)
+                            .shadow(color: (Color(hex: category.colorHex) ?? .gray).opacity(0.3), radius: 8, x: 0, y: 4)
 
-                    Image(systemName: category.iconName)
-                        .font(.system(size: 18))
-                        .foregroundColor(.white)
-                }
-
-                // Nome e status
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 6) {
-                        Text(category.name)
-                            .font(.headline)
-                            .foregroundColor(AppColors.textPrimary)
-
-                        // Indicador de sync pendente
-                        if category.isPendingSync {
-                            Image(systemName: "arrow.triangle.2.circlepath")
-                                .font(.caption2)
-                                .foregroundColor(AppColors.textTertiary)
-                        }
+                        Image(systemName: category.iconName)
+                            .font(.system(size: 18))
+                            .foregroundColor(.white)
                     }
 
-                    Text(category.isActive ? "Ativa" : "Inativa")
+                    // Nome e status
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack(spacing: 6) {
+                            Text(category.name)
+                                .font(.headline)
+                                .foregroundColor(AppColors.textPrimary)
+
+                            // Indicador de sync pendente
+                            if category.isPendingSync {
+                                Image(systemName: "arrow.triangle.2.circlepath")
+                                    .font(.caption2)
+                                    .foregroundColor(AppColors.textTertiary)
+                            }
+                        }
+
+                        Text(category.isActive ? "Ativa" : "Inativa")
+                            .font(.caption)
+                            .foregroundColor(category.isActive ? AppColors.accentGreen : AppColors.textTertiary)
+                    }
+
+                    Spacer()
+
+                    // Chevron
+                    Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundColor(category.isActive ? AppColors.accentGreen : AppColors.textTertiary)
+                        .foregroundColor(AppColors.textTertiary)
                 }
-
-                Spacer()
-
-                // Chevron
-                Image(systemName: "chevron.right")
-                    .font(.caption)
-                    .foregroundColor(AppColors.textTertiary)
             }
-            .padding(16)
-            .background(AppColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppColors.cardBorder, lineWidth: 1)
-            )
             .opacity(category.isActive ? 1.0 : 0.6)
         }
         .buttonStyle(PlainButtonStyle())
@@ -178,45 +170,40 @@ struct SettingsCard: View {
 
     var body: some View {
         Button(action: { action?() }) {
-            HStack(spacing: 16) {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(iconColor.opacity(0.1))
-                        .frame(width: 40, height: 40)
+            AppCard(padding: 16, corners: 20) {
+                HStack(spacing: 16) {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(iconColor.opacity(0.1))
+                            .frame(width: 40, height: 40)
 
-                    Image(systemName: icon)
-                        .font(.system(size: 16))
-                        .foregroundColor(iconColor)
-                }
+                        Image(systemName: icon)
+                            .font(.system(size: 16))
+                            .foregroundColor(iconColor)
+                    }
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(title)
-                        .font(.body)
-                        .fontWeight(.medium)
-                        .foregroundColor(AppColors.textPrimary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(title)
+                            .font(.body)
+                            .fontWeight(.medium)
+                            .foregroundColor(AppColors.textPrimary)
 
-                    if let subtitle = subtitle {
-                        Text(subtitle)
+                        if let subtitle = subtitle {
+                            Text(subtitle)
                             .font(.caption)
                             .foregroundColor(AppColors.textSecondary)
+                        }
+                    }
+
+                    Spacer()
+
+                    if showChevron {
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundColor(AppColors.textTertiary)
                     }
                 }
-
-                Spacer()
-
-                if showChevron {
-                    Image(systemName: "chevron.right")
-                        .font(.caption)
-                        .foregroundColor(AppColors.textTertiary)
-                }
             }
-            .padding(16)
-            .background(AppColors.cardBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(AppColors.cardBorder, lineWidth: 1)
-            )
         }
         .buttonStyle(PlainButtonStyle())
     }

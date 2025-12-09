@@ -16,7 +16,7 @@ struct NewPasswordView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -49,13 +49,13 @@ struct NewPasswordView: View {
 
                     // Password Fields
                     VStack(spacing: 16) {
-                        DarkSecureField(
+                        AppSecureField(
                             icon: "lock",
                             placeholder: "Nova senha",
                             text: $password
                         )
 
-                        DarkSecureField(
+                        AppSecureField(
                             icon: "lock.shield",
                             placeholder: "Confirme a nova senha",
                             text: $confirmPassword
@@ -78,7 +78,7 @@ struct NewPasswordView: View {
                         .padding(.vertical, 4)
 
                         // Reset Button
-                        DarkButton(
+                        AppButton(
                             title: "Redefinir senha",
                             icon: "checkmark.circle.fill",
                             isLoading: isLoading,

@@ -18,7 +18,7 @@ struct AddTransactionView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             // Content
             VStack(spacing: 0) {
@@ -77,7 +77,7 @@ struct AddTransactionView: View {
                                 .fontWeight(.medium)
                                 .foregroundColor(AppColors.textSecondary)
 
-                            DarkSegmentedPicker(
+                            AppSegmentedPicker(
                                 selection: $viewModel.type,
                                 options: [
                                     (.expense, "Gasto"),
@@ -109,7 +109,7 @@ struct AddTransactionView: View {
                                     }
                             }
                             .padding(16)
-                            .background(AppColors.cardBackground)
+                            .background(AppColors.bgSecondary)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 16)
                                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -117,40 +117,15 @@ struct AddTransactionView: View {
                             .cornerRadius(16)
                         }
 
-                        // Data
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Data")
-                                .font(.caption)
-                                .fontWeight(.medium)
-                                .foregroundColor(AppColors.textSecondary)
+                        // Nome (logo após o valor)
+                        nameSection
 
-                            HStack {
-                                Image(systemName: "calendar")
-                                    .foregroundColor(AppColors.textSecondary)
-
-                                DatePicker("", selection: $viewModel.date, displayedComponents: .date)
-                                    .datePickerStyle(.compact)
-                                    .environment(\.locale, Locale(identifier: "pt_BR"))
-                                    .labelsHidden()
-                                    .colorScheme(.dark)
-
-                                Spacer()
-                            }
-                            .padding(16)
-                            .background(AppColors.cardBackground)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 16)
-                                    .stroke(AppColors.cardBorder, lineWidth: 1)
-                            )
-                            .cornerRadius(16)
-                        }
-
-                        // Localização (opcional) - apenas para gastos
+                        // Categoria (apenas para gastos, logo após o nome)
                         if viewModel.type == .expense {
-                            locationSection
+                            categorySection
                         }
 
-                        // Forma de Pagamento (apenas para gastos)
+                        // Forma de Pagamento (apenas para gastos, logo após categoria)
                         if viewModel.type == .expense {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text("Forma de Pagamento")
@@ -171,22 +146,48 @@ struct AddTransactionView: View {
                             .animation(.easeInOut(duration: 0.15), value: viewModel.paymentMethod)
                         }
 
-                        // Nome
-                        nameSection
-
-                        // Categoria (apenas para gastos)
-                        if viewModel.type == .expense {
-                            categorySection
-                        }
-
-                        // Descrição (opcional) - sempre por último
+                        // Data
                         VStack(alignment: .leading, spacing: 8) {
-                            Text("Descrição (opcional)")
+                            Text("Data")
                                 .font(.caption)
                                 .fontWeight(.medium)
                                 .foregroundColor(AppColors.textSecondary)
 
-                            DarkTextField(
+                            HStack {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppColors.accentBlue)
+
+                                DatePicker("", selection: $viewModel.date, displayedComponents: .date)
+                                    .datePickerStyle(.compact)
+                                    .labelsHidden()
+                                    .environment(\.locale, Locale(identifier: "pt_BR"))
+                                    .tint(AppColors.textPrimary)
+
+                                Spacer()
+                            }
+                            .padding(16)
+                            .background(AppColors.bgSecondary)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(AppColors.cardBorder, lineWidth: 1)
+                            )
+                            .cornerRadius(16)
+                        }
+
+                        // Localização (opcional) - apenas para gastos
+                        if viewModel.type == .expense {
+                            locationSection
+                        }
+
+                        // Observação (opcional) - sempre por último
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Observação (opcional)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppColors.textSecondary)
+
+                            AppTextField(
                                 icon: "text.alignleft",
                                 placeholder: "Detalhes adicionais...",
                                 text: $viewModel.notes,
@@ -204,7 +205,18 @@ struct AddTransactionView: View {
         .disabled(viewModel.isLoading)
         .overlay {
             if viewModel.isLoading {
-                DarkLoadingOverlay(message: "Salvando...")
+                ZStack {
+                    AppBackground().opacity(0.8)
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                            .tint(AppColors.accentBlue)
+                        
+                        Text("Salvando...")
+                            .font(.headline)
+                            .foregroundColor(AppColors.textPrimary)
+                    }
+                }
             }
         }
         .alert("Erro", isPresented: .constant(viewModel.errorMessage != nil)) {
@@ -259,7 +271,7 @@ struct AddTransactionView: View {
                 .fontWeight(.medium)
                 .foregroundColor(AppColors.textSecondary)
 
-            DarkTextField(
+            AppTextField(
                 icon: "bag",
                 placeholder: viewModel.type == .income ? "Ex: Salário, Freelance, etc." : "Ex: Supermercado, Uber, etc.",
                 text: $viewModel.description,
@@ -383,7 +395,7 @@ struct AddTransactionView: View {
                             .foregroundColor(AppColors.textSecondary)
                     }
                     .padding(16)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -507,7 +519,7 @@ struct AddTransactionView: View {
                 }
             }
             .padding(16)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -534,7 +546,7 @@ struct AddTransactionView: View {
                             .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(12)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -561,7 +573,7 @@ struct AddTransactionView: View {
                             .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(12)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -621,7 +633,7 @@ struct AddTransactionView: View {
                         locationMapPreview(latitude: lat, longitude: lon)
                     }
                 }
-                .background(AppColors.cardBackground)
+                .background(AppColors.bgSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(Color.green.opacity(0.3), lineWidth: 1)
@@ -719,7 +731,7 @@ struct AddTransactionView: View {
                         locationMapPreview(latitude: lat, longitude: lon)
                     }
                 }
-                .background(AppColors.cardBackground)
+                .background(AppColors.bgSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(viewModel.latitude != nil ? Color.green.opacity(0.3) : AppColors.cardBorder, lineWidth: 1)
@@ -749,7 +761,7 @@ struct AddTransactionView: View {
                         .foregroundColor(AppColors.textPrimary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -770,7 +782,7 @@ struct AddTransactionView: View {
                         .foregroundColor(AppColors.textPrimary)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                         .overlay(
                             RoundedRectangle(cornerRadius: 12)
                                 .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -832,7 +844,7 @@ struct AddTransactionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(viewModel.installments == 1 ? Color.green.opacity(0.1) : AppColors.cardBackground)
+                    .background(viewModel.installments == 1 ? Color.green.opacity(0.1) : AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(viewModel.installments == 1 ? Color.green.opacity(0.3) : AppColors.cardBorder, lineWidth: 1)
@@ -868,7 +880,7 @@ struct AddTransactionView: View {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
-                    .background(viewModel.installments > 1 ? Color.purple.opacity(0.1) : AppColors.cardBackground)
+                    .background(viewModel.installments > 1 ? Color.purple.opacity(0.1) : AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(viewModel.installments > 1 ? Color.purple.opacity(0.3) : AppColors.cardBorder, lineWidth: 1)
@@ -987,7 +999,7 @@ struct AddTransactionView: View {
                     .foregroundColor(AppColors.textSecondary)
             }
             .padding(16)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -1098,7 +1110,7 @@ struct LocationMapPickerSheet: View {
 
     var body: some View {
         ZStack {
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 // Header
@@ -1220,7 +1232,7 @@ struct LocationMapPickerSheet: View {
                         }
                     }
                     .padding()
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
 
                     // Current address indicator (when not searching)
                     if searchQuery.isEmpty && !addressPreview.isEmpty {
@@ -1298,10 +1310,10 @@ struct LocationMapPickerSheet: View {
                             }
                         }
                         .frame(maxHeight: 200)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                     }
                 }
-                .background(AppColors.cardBackground)
+                .background(AppColors.bgSecondary)
                 .cornerRadius(16)
                 .padding()
             }
@@ -1525,7 +1537,7 @@ struct CategoryManagementSheet: View {
 
     var body: some View {
         ZStack {
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 // Header
@@ -1614,54 +1626,49 @@ private struct CategoryManagementRow: View {
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
-            // Category icon
-            ZStack {
-                Circle()
-                    .fill(category.color.opacity(0.2))
-                    .frame(width: 44, height: 44)
+        AppCard(padding: 16, corners: 16) {
+            HStack(spacing: 16) {
+                // Category icon
+                ZStack {
+                    Circle()
+                        .fill(category.color.opacity(0.2))
+                        .frame(width: 44, height: 44)
 
-                Image(systemName: category.iconName)
-                    .font(.system(size: 18))
-                    .foregroundColor(category.color)
+                    Image(systemName: category.iconName)
+                        .font(.system(size: 18))
+                        .foregroundColor(category.color)
+                }
+
+                // Category name
+                Text(category.name)
+                    .font(.body)
+                    .fontWeight(.medium)
+                    .foregroundColor(AppColors.textPrimary)
+
+                Spacer()
+
+                // Edit button
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppColors.textSecondary)
+                        .frame(width: 36, height: 36)
+                        .background(AppColors.bgTertiary)
+                        .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
+
+                // Delete button
+                Button(action: onDelete) {
+                    Image(systemName: "trash")
+                        .font(.system(size: 16))
+                        .foregroundColor(AppColors.expense)
+                        .frame(width: 36, height: 36)
+                        .background(AppColors.expense.opacity(0.1))
+                        .cornerRadius(8)
+                }
+                .buttonStyle(PlainButtonStyle())
             }
-
-            // Category name
-            Text(category.name)
-                .font(.body)
-                .fontWeight(.medium)
-                .foregroundColor(AppColors.textPrimary)
-
-            Spacer()
-
-            // Edit button
-            Button(action: onEdit) {
-                Image(systemName: "pencil")
-                    .font(.system(size: 16))
-                    .foregroundColor(AppColors.textSecondary)
-                    .frame(width: 36, height: 36)
-                    .background(AppColors.cardBackground)
-                    .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
-
-            // Delete button
-            Button(action: onDelete) {
-                Image(systemName: "trash")
-                    .font(.system(size: 16))
-                    .foregroundColor(AppColors.expense)
-                    .frame(width: 36, height: 36)
-                    .background(AppColors.expense.opacity(0.1))
-                    .cornerRadius(8)
-            }
-            .buttonStyle(PlainButtonStyle())
         }
-        .padding(16)
-        .background(AppColors.cardBackground)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
-        )
-        .cornerRadius(16)
     }
 }

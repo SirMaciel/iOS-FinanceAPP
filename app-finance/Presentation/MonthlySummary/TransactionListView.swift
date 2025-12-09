@@ -85,7 +85,7 @@ struct TransactionListView: View {
             }
         }
         .padding(16)
-        .background(AppColors.cardBackground)
+        .background(AppColors.bgSecondary)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -97,7 +97,7 @@ struct TransactionListView: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(AppColors.cardBackground)
+                    .fill(AppColors.bgTertiary)
                     .frame(width: 64, height: 64)
                     .overlay(
                         Circle()

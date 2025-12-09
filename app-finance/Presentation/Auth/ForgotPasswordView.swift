@@ -21,7 +21,7 @@ struct ForgotPasswordView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -66,7 +66,7 @@ struct ForgotPasswordView: View {
                         .padding(.horizontal, 4)
                     }
 
-                    DarkTextField(
+                    AppTextField(
                         icon: "envelope",
                         placeholder: "Seu e-mail",
                         text: $email,
@@ -87,7 +87,7 @@ struct ForgotPasswordView: View {
                 .padding(.horizontal, 24)
 
                 // Send Button
-                DarkButton(
+                AppButton(
                     title: "Enviar link",
                     icon: "paperplane.fill",
                     isLoading: isLoading,

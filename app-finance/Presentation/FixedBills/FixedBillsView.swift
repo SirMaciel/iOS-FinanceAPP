@@ -15,7 +15,7 @@ struct FixedBillsView: View {
 
     var body: some View {
         ZStack {
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 // Header
@@ -82,11 +82,12 @@ struct FixedBillsView: View {
 
     private var headerView: some View {
         HStack {
-            DarkSectionHeader(title: "Contas Fixas")
+            SectionHeader(title: "Contas Fixas")
 
             Spacer()
         }
         .padding()
+        .background(AppColors.bgPrimary)
     }
 
     // MARK: - View Mode Picker
@@ -97,7 +98,7 @@ struct FixedBillsView: View {
             viewModeButton(mode: .grouped, icon: "rectangle.grid.1x2", title: "Agrupado")
         }
         .padding(4)
-        .background(AppColors.cardBackground)
+        .background(AppColors.bgSecondary)
         .cornerRadius(12)
         .overlay(
             RoundedRectangle(cornerRadius: 12)
@@ -167,7 +168,7 @@ struct FixedBillsView: View {
                     .multilineTextAlignment(.center)
             }
 
-            DarkButton(title: "Adicionar Conta", icon: "plus") {
+            AppButton(title: "Adicionar Conta", icon: "plus") {
                 showingAddBill = true
             }
             .padding(.horizontal, 40)
@@ -257,7 +258,7 @@ struct FixedBillsView: View {
         .padding(24)
         .background(
             ZStack {
-                AppColors.cardBackground
+                AppColors.bgSecondary
                 // Subtle shine
                 LinearGradient(
                     colors: [Color.white.opacity(0.02), Color.clear],
@@ -353,7 +354,7 @@ struct FixedBillsView: View {
                     }
                 }
                 .padding(16)
-                .background(AppColors.cardBackground.opacity(0.5)) // Slightly darker/lighter for groups?
+                .background(AppColors.bgSecondary) // Slightly darker/lighter for groups?
                 .cornerRadius(20)
                 .overlay(
                     RoundedRectangle(cornerRadius: 20)
@@ -486,7 +487,7 @@ struct FixedBillRow: View {
             }
         }
         .padding(isCompact ? 12 : 16)
-        .background(AppColors.cardBackground)
+        .background(AppColors.bgSecondary)
         .cornerRadius(16)
         .overlay(
             RoundedRectangle(cornerRadius: 16)

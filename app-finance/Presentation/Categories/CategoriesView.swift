@@ -10,13 +10,13 @@ struct CategoriesView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             // Content
             VStack(spacing: 0) {
                 // Header com indicador offline e botão editar
                 HStack {
-                    DarkSectionHeader(title: "Suas Categorias")
+                    SectionHeader(title: "Suas Categorias")
 
                     Spacer()
 
@@ -30,7 +30,7 @@ struct CategoriesView: View {
                         .foregroundColor(AppColors.textTertiary)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 4)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                         .cornerRadius(8)
                     }
 
@@ -48,7 +48,10 @@ struct CategoriesView: View {
                 .padding(.top)
 
                 if viewModel.isLoading && viewModel.categories.isEmpty {
-                    DarkLoadingOverlay()
+                    ProgressView()
+                        .scaleEffect(1.5)
+                        .tint(AppColors.accentBlue)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if viewModel.categories.isEmpty {
                     emptyState
                         .padding()
@@ -97,7 +100,7 @@ struct CategoriesView: View {
     }
 
     private var emptyState: some View {
-        DarkEmptyState(
+        AppEmptyState(
             icon: "folder",
             title: "Nenhuma categoria ainda",
             subtitle: "Categorias serão criadas automaticamente ao adicionar gastos"

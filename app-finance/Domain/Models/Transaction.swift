@@ -35,9 +35,14 @@ final class Transaction: Identifiable {
     var locationName: String?
     var latitude: Double?
     var longitude: Double?
+    var cityName: String?  // Cidade extraída das coordenadas via geocodificação reversa
 
     // Installments (for credit card purchases)
     var installments: Int?
+    var startingInstallment: Int?  // For existing installments (e.g., start from 3 of 10)
+
+    // Notes/Observation (optional)
+    var notes: String?
 
     init(
         id: String = UUID().uuidString,
@@ -60,7 +65,10 @@ final class Transaction: Identifiable {
         locationName: String? = nil,
         latitude: Double? = nil,
         longitude: Double? = nil,
-        installments: Int? = nil
+        cityName: String? = nil,
+        installments: Int? = nil,
+        startingInstallment: Int? = nil,
+        notes: String? = nil
     ) {
         self.id = id
         self.serverId = serverId
@@ -82,7 +90,10 @@ final class Transaction: Identifiable {
         self.locationName = locationName
         self.latitude = latitude
         self.longitude = longitude
+        self.cityName = cityName
         self.installments = installments
+        self.startingInstallment = startingInstallment
+        self.notes = notes
     }
 
     var syncStatusEnum: SyncStatus {

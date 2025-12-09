@@ -31,7 +31,7 @@ struct FloatingAddButton: View {
 
 #Preview {
     ZStack {
-        DarkBackground()
+        AppBackground()
 
         FloatingAddButton {
             print("Tapped")

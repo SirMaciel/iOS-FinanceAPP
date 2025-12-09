@@ -59,7 +59,7 @@ struct AddCreditCardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                DarkBackground()
+                AppBackground()
 
                 VStack(spacing: 0) {
                     header
@@ -91,7 +91,7 @@ struct AddCreditCardView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .cornerRadius(10)
             }
             .buttonStyle(.plain)
@@ -182,7 +182,7 @@ struct AddCreditCardView: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
 
-                DarkTextField(
+                AppTextField(
                     icon: "creditcard",
                     placeholder: "Ex: Nubank Ultravioleta",
                     text: $cardName,
@@ -195,7 +195,7 @@ struct AddCreditCardView: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
 
-                DarkTextField(
+                AppTextField(
                     icon: "person",
                     placeholder: "Nome impresso no cartão",
                     text: $holderName,
@@ -208,7 +208,7 @@ struct AddCreditCardView: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
 
-                DarkTextField(
+                AppTextField(
                     icon: "number",
                     placeholder: "0000",
                     text: $lastFourDigits,
@@ -244,7 +244,7 @@ struct AddCreditCardView: View {
                     .font(.caption)
                     .foregroundColor(AppColors.textSecondary)
 
-                DarkTextField(
+                AppTextField(
                     icon: "brazilianrealsign",
                     placeholder: "R$ 0,00",
                     text: $limitAmount,
@@ -333,7 +333,7 @@ struct AddCreditCardView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -379,7 +379,7 @@ struct AddCreditCardView: View {
                             .foregroundColor(AppColors.textSecondary)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(AppColors.cardBackground.opacity(0.5))
+                            .background(AppColors.bgSecondary.opacity(0.5))
                             .cornerRadius(4)
                     }
                 } else {
@@ -395,7 +395,7 @@ struct AddCreditCardView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -436,7 +436,7 @@ struct AddCreditCardView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -485,7 +485,7 @@ struct AddCreditCardView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -516,7 +516,7 @@ struct AddCreditCardView: View {
             }
             .padding(.horizontal, 16)
             .frame(height: 56)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -935,7 +935,7 @@ struct CreditCardRow: View {
                     .foregroundColor(AppColors.textTertiary)
             }
             .padding(16)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .cornerRadius(16)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)

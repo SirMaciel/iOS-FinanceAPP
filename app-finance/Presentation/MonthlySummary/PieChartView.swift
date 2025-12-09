@@ -133,7 +133,7 @@ struct PieChartView: View {
             }
         }
         .padding()
-        .background(AppColors.cardBackground)
+        .background(AppColors.bgSecondary)
         .overlay(
             RoundedRectangle(cornerRadius: 20)
                 .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -145,7 +145,7 @@ struct PieChartView: View {
         VStack(spacing: 16) {
             ZStack {
                 Circle()
-                    .fill(AppColors.cardBackground)
+                    .fill(AppColors.bgTertiary)
                     .frame(width: 80, height: 80)
                     .overlay(
                         Circle()

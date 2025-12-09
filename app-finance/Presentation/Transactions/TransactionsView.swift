@@ -6,12 +6,13 @@ struct TransactionsView: View {
     let transactions: [TransactionItemViewModel]
     let currentMonth: MonthRef
     let onDelete: (String) -> Void
+    var onEdit: ((String, String, Decimal, Date, TransactionType, String?, String?) -> Void)? = nil
 
     @State private var selectedTransaction: TransactionItemViewModel?
 
     var body: some View {
         ZStack {
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 // Header
@@ -45,7 +46,7 @@ struct TransactionsView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .cornerRadius(10)
             }
             .buttonStyle(.plain)
@@ -190,7 +191,7 @@ struct TransactionsView: View {
         .padding(24)
         .background(
             ZStack {
-                AppColors.cardBackground
+                AppColors.bgSecondary
                 // Subtle shine
                 LinearGradient(
                     colors: [Color.white.opacity(0.02), Color.clear],
@@ -233,7 +234,11 @@ struct TransactionsView: View {
                 onDelete: {
                     onDelete(transaction.id)
                     selectedTransaction = nil
-                }
+                },
+                onEdit: onEdit != nil ? { desc, amount, date, type, categoryId, notes in
+                    onEdit?(transaction.id, desc, amount, date, type, categoryId, notes)
+                    selectedTransaction = nil
+                } : nil
             )
         }
     }

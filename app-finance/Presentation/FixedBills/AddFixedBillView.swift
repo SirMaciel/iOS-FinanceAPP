@@ -53,7 +53,7 @@ struct AddFixedBillView: View {
 
     var body: some View {
         ZStack {
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 header
@@ -109,7 +109,7 @@ struct AddFixedBillView: View {
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundColor(AppColors.textSecondary)
                     .frame(width: 36, height: 36)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .cornerRadius(10)
             }
             .buttonStyle(.plain)
@@ -160,7 +160,7 @@ struct AddFixedBillView: View {
                     }
             }
             .padding(16)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -202,7 +202,7 @@ struct AddFixedBillView: View {
                 .fontWeight(.medium)
                 .foregroundColor(AppColors.textSecondary)
 
-            DarkTextField(
+            AppTextField(
                 icon: "doc.text",
                 placeholder: "Ex: Aluguel, Financiamento, Netflix",
                 text: $name,
@@ -398,7 +398,7 @@ struct AddFixedBillView: View {
                             .foregroundColor(AppColors.textSecondary)
                     }
                     .padding(16)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 16)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -529,7 +529,7 @@ struct AddFixedBillView: View {
                 }
             }
             .padding(16)
-            .background(AppColors.cardBackground)
+            .background(AppColors.bgSecondary)
             .overlay(
                 RoundedRectangle(cornerRadius: 16)
                     .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -556,7 +556,7 @@ struct AddFixedBillView: View {
                             .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(12)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -583,7 +583,7 @@ struct AddFixedBillView: View {
                             .foregroundColor(AppColors.textTertiary)
                     }
                     .padding(12)
-                    .background(AppColors.cardBackground)
+                    .background(AppColors.bgSecondary)
                     .overlay(
                         RoundedRectangle(cornerRadius: 12)
                             .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -630,7 +630,7 @@ struct AddFixedBillView: View {
                         .foregroundColor(AppColors.textSecondary)
                 }
                 .padding(16)
-                .background(AppColors.cardBackground)
+                .background(AppColors.bgSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -649,7 +649,7 @@ struct AddFixedBillView: View {
                 .fontWeight(.medium)
                 .foregroundColor(AppColors.textSecondary)
 
-            DarkTextField(
+            AppTextField(
                 icon: "note.text",
                 placeholder: "Anotações sobre esta conta",
                 text: $notes,
@@ -780,7 +780,7 @@ struct AddFixedBillView: View {
                                 }
                         }
                         .padding(14)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                         .cornerRadius(14)
 
                         // Paid installments (only if total is set)
@@ -846,7 +846,7 @@ struct AddFixedBillView: View {
                                     }
                             }
                             .padding(14)
-                            .background(AppColors.cardBackground)
+                            .background(AppColors.bgSecondary)
                             .cornerRadius(14)
                             .transition(.asymmetric(
                                 insertion: .opacity.combined(with: .move(edge: .top)),
@@ -894,7 +894,7 @@ struct AddFixedBillView: View {
                 .tint(AppColors.accentGreen)
         }
         .padding(16)
-        .background(AppColors.cardBackground)
+        .background(AppColors.bgSecondary)
         .overlay(
             RoundedRectangle(cornerRadius: 16)
                 .stroke(AppColors.cardBorder, lineWidth: 1)
@@ -1041,7 +1041,7 @@ struct IconPickerSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                DarkBackground()
+                AppBackground()
 
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {
@@ -1052,7 +1052,7 @@ struct IconPickerSheet: View {
                             }) {
                                 ZStack {
                                     Circle()
-                                        .fill(selectedIcon == icon ? AppColors.accentBlue.opacity(0.3) : AppColors.cardBackground)
+                                        .fill(selectedIcon == icon ? AppColors.accentBlue.opacity(0.3) : AppColors.bgSecondary)
                                         .frame(width: 48, height: 48)
 
                                     Image(systemName: icon)
@@ -1109,7 +1109,7 @@ struct ColorPickerSheet: View {
     var body: some View {
         NavigationView {
             ZStack {
-                DarkBackground()
+                AppBackground()
 
                 ScrollView {
                     LazyVGrid(columns: columns, spacing: 16) {

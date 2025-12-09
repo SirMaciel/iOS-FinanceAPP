@@ -19,7 +19,7 @@ struct CategoryEditView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             // Content
             VStack(spacing: 24) {
@@ -80,7 +80,7 @@ struct CategoryEditView: View {
                             .fontWeight(.medium)
                             .foregroundColor(AppColors.textSecondary)
 
-                        DarkTextField(
+                        AppTextField(
                             icon: "pencil",
                             placeholder: "Nome da categoria",
                             text: $name
@@ -118,11 +118,11 @@ struct CategoryEditView: View {
                                 .foregroundColor(AppColors.textSecondary)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 8)
-                                .background(AppColors.cardBackground)
+                                .background(AppColors.bgSecondary)
                                 .cornerRadius(8)
                         }
                         .padding(16)
-                        .background(AppColors.cardBackground)
+                        .background(AppColors.bgSecondary)
                         .overlay(
                             RoundedRectangle(cornerRadius: 16)
                                 .stroke(AppColors.cardBorder, lineWidth: 1)

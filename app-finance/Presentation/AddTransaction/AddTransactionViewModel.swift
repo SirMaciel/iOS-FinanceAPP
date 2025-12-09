@@ -4,6 +4,7 @@ import SwiftData
 import UIKit
 import SwiftUI
 import CoreLocation
+import MapKit
 
 // MARK: - Payment Method
 
@@ -275,6 +276,33 @@ class AddTransactionViewModel: ObservableObject {
         isLoadingLocation = false
     }
 
+    /// Extrai o nome da cidade a partir das coordenadas via geocodificação reversa
+    private func extractCityName(latitude: Double, longitude: Double) async -> String? {
+        let location = CLLocation(latitude: latitude, longitude: longitude)
+
+        guard let request = MKReverseGeocodingRequest(location: location) else {
+            print("❌ Coordenadas inválidas para geocodificação")
+            return nil
+        }
+
+        do {
+            let mapItems = try await request.mapItems
+            if let mapItem = mapItems.first {
+                // iOS 26: usar addressRepresentations ao invés de placemark (deprecated)
+                if let cityWithContext = mapItem.addressRepresentations?.cityWithContext {
+                    // cityWithContext retorna algo como "São Paulo, SP" - extrair só a cidade
+                    let components = cityWithContext.components(separatedBy: ",")
+                    return components.first?.trimmingCharacters(in: .whitespaces)
+                }
+                // Fallback: usar regionName
+                return mapItem.addressRepresentations?.regionName
+            }
+        } catch {
+            print("❌ Erro ao extrair cidade: \(error)")
+        }
+        return nil
+    }
+
     func saveTransaction(userId: String, onSuccess: @escaping () -> Void) async {
         guard !amount.isEmpty, !description.isEmpty else {
             errorMessage = "Preencha todos os campos"
@@ -325,6 +353,12 @@ class AddTransactionViewModel: ObservableObject {
         // Parcelas só para cartão de crédito
         let installmentCount = (paymentMethod == .credit && installments > 1) ? installments : nil
 
+        // Extrair cidade das coordenadas se tiver localização
+        var cityName: String? = nil
+        if saveLocation, let lat = latitude, let lon = longitude {
+            cityName = await extractCityName(latitude: lat, longitude: lon)
+        }
+
         let _ = transactionRepo.createTransaction(
             userId: userId,
             type: type,
@@ -336,7 +370,9 @@ class AddTransactionViewModel: ObservableObject {
             locationName: saveLocation ? locationName : nil,
             latitude: saveLocation ? latitude : nil,
             longitude: saveLocation ? longitude : nil,
-            installments: installmentCount
+            cityName: cityName,
+            installments: installmentCount,
+            notes: notes.isEmpty ? nil : notes
         )
 
         // Haptic feedback

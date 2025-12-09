@@ -16,7 +16,7 @@ struct ResetPasswordCodeView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -68,7 +68,7 @@ struct ResetPasswordCodeView: View {
                 .padding(.horizontal, 24)
 
                 // Verify Button
-                DarkButton(
+                AppButton(
                     title: "Verificar",
                     icon: "checkmark",
                     isLoading: isLoading,
@@ -184,7 +184,7 @@ struct ResetCodeDigitBox: View {
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
-                .fill(AppColors.cardBackground)
+                .fill(AppColors.bgSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(

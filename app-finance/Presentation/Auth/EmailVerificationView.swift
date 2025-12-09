@@ -17,7 +17,7 @@ struct EmailVerificationView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -54,7 +54,7 @@ struct EmailVerificationView: View {
 
                 // Code Input
                 VStack(spacing: 20) {
-                    DarkCodeInputView(code: $code, isCodeFocused: $isCodeFocused)
+                    AppCodeInputView(code: $code, isCodeFocused: $isCodeFocused)
 
                     if let error = errorMessage {
                         HStack(spacing: 6) {
@@ -69,7 +69,7 @@ struct EmailVerificationView: View {
                 .padding(.horizontal, 24)
 
                 // Verify Button
-                DarkButton(
+                AppButton(
                     title: "Verificar",
                     icon: "checkmark",
                     isLoading: isLoading,
@@ -186,7 +186,7 @@ struct EmailVerificationView: View {
 
 // MARK: - Dark Code Input View
 
-struct DarkCodeInputView: View {
+struct AppCodeInputView: View {
     @Binding var code: String
     var isCodeFocused: FocusState<Bool>.Binding
     
@@ -195,7 +195,7 @@ struct DarkCodeInputView: View {
     var body: some View {
         HStack(spacing: 12) {
             ForEach(0..<codeLength, id: \.self) { index in
-                DarkCodeDigitBox(
+                AppCodeDigitBox(
                     digit: digit(at: index),
                     isFocused: index == code.count || (index == codeLength - 1 && code.count == codeLength)
                 )
@@ -219,14 +219,14 @@ struct DarkCodeInputView: View {
     }
 }
 
-struct DarkCodeDigitBox: View {
+struct AppCodeDigitBox: View {
     let digit: String
     let isFocused: Bool
 
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 16)
-                .fill(AppColors.cardBackground)
+                .fill(AppColors.bgSecondary)
                 .overlay(
                     RoundedRectangle(cornerRadius: 16)
                         .stroke(

@@ -5,7 +5,7 @@ struct CardSpendingCarousel: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            DarkSectionHeader(title: "Gastos do Cartão")
+            SectionHeader(title: "Gastos do Cartão")
             
             if cardSpendings.isEmpty {
                 Text("Nenhum gasto com cartão neste mês")
@@ -38,7 +38,7 @@ private struct CardSpendingSummaryCard: View {
     }
 
     var body: some View {
-        DarkCard(padding: 16, corners: 20) {
+        AppCard(padding: 16, corners: 20) {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
                     // Mini card icon

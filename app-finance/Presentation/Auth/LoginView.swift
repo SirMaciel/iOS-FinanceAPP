@@ -20,7 +20,7 @@ struct LoginView: View {
         NavigationStack {
             ZStack {
                 // Background
-                DarkBackground()
+                AppBackground()
 
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: 0) {
@@ -53,7 +53,7 @@ struct LoginView: View {
 
                         // Form
                         VStack(spacing: 20) {
-                            DarkTextField(
+                            AppTextField(
                                 icon: "envelope",
                                 placeholder: "Seu e-mail",
                                 text: $email,
@@ -61,7 +61,7 @@ struct LoginView: View {
                             )
 
                             VStack(alignment: .trailing, spacing: 8) {
-                                DarkSecureField(
+                                AppSecureField(
                                     icon: "lock",
                                     placeholder: "Sua senha",
                                     text: $password
@@ -81,7 +81,7 @@ struct LoginView: View {
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
 
-                            DarkButton(
+                            AppButton(
                                 title: "Entrar",
                                 icon: "arrow.right",
                                 isLoading: isLoading,
@@ -111,7 +111,7 @@ struct LoginView: View {
 
                         // Social Login
                         VStack(spacing: 16) {
-                            DarkButton(
+                            AppButton(
                                 title: "Continuar com Apple",
                                 icon: "apple.logo",
                                 style: .secondary,

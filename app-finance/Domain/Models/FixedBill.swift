@@ -115,6 +115,23 @@ enum FixedBillCategory: String, Codable, CaseIterable {
         case .custom: return .teal
         }
     }
+
+    var colorHex: String {
+        switch self {
+        case .housing: return "#3B82F6"      // blue
+        case .utilities: return "#EAB308"    // yellow
+        case .health: return "#EF4444"       // red
+        case .education: return "#A855F7"    // purple
+        case .transport: return "#F97316"    // orange
+        case .entertainment: return "#EC4899" // pink
+        case .subscription: return "#06B6D4" // cyan
+        case .insurance: return "#22C55E"    // green
+        case .financing: return "#D9A621"    // dourado
+        case .loan: return "#6366F1"         // indigo
+        case .other: return "#6B7280"        // gray
+        case .custom: return "#14B8A6"       // teal
+        }
+    }
 }
 
 // MARK: - Extensions
@@ -144,6 +161,14 @@ extension FixedBill {
             return Color(hex: colorHex) ?? category.color
         }
         return category.color
+    }
+
+    /// Display color hex string for the category
+    var displayCategoryColorHex: String {
+        if category == .custom, let colorHex = customCategoryColorHex {
+            return colorHex
+        }
+        return category.colorHex
     }
 
     // MARK: - Amount

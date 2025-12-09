@@ -14,6 +14,7 @@ class MonthlySummaryViewModel: ObservableObject {
 
     // Local data
     @Published private(set) var transactions: [Transaction] = []
+    @Published private(set) var installmentTransactions: [Transaction] = []  // Todas transações parceladas
     @Published private(set) var categories: [Category] = []
     @Published private(set) var fixedBills: [FixedBill] = []
 
@@ -65,14 +66,24 @@ class MonthlySummaryViewModel: ObservableObject {
     }
 
     var totalExpense: Double {
+        // Transações normais (excluindo parcelamentos que são calculados separadamente)
         let transactionsTotal = transactions
-            .filter { $0.type == .expense && $0.syncStatusEnum != .pendingDelete }
+            .filter {
+                $0.type == .expense &&
+                $0.syncStatusEnum != .pendingDelete &&
+                ($0.installments == nil || $0.installments! <= 1)
+            }
             .reduce(0) { $0 + $1.amountDouble }
-        return transactionsTotal + totalFixedBills
+        return transactionsTotal + totalFixedBills + totalInstallmentsForMonth
     }
 
     var totalFixedBills: Double {
         activeFixedBillsForMonth.reduce(0) { $0 + $1.amountDouble }
+    }
+
+    /// Total dos parcelamentos do mês (valor da parcela, não valor total)
+    var totalInstallmentsForMonth: Double {
+        installmentsForMonth.reduce(0) { $0 + $1.installmentAmount }
     }
 
     /// Contas fixas ativas para o mês atual, excluindo financiamentos já terminados
@@ -134,9 +145,12 @@ class MonthlySummaryViewModel: ObservableObject {
         return min(paidBefore + monthsSinceCreation + 1, totalInstallments)
     }
 
-    var pieData: [PieCategoryData] {
+    /// Gráfico de pizza para transações (sem parcelamentos)
+    var pieDataTransactions: [PieCategoryData] {
         let expenseTransactions = transactions.filter {
-            $0.type == .expense && $0.syncStatusEnum != .pendingDelete
+            $0.type == .expense &&
+            $0.syncStatusEnum != .pendingDelete &&
+            ($0.installments == nil || $0.installments! <= 1)
         }
         let total = expenseTransactions.reduce(0) { $0 + $1.amountDouble }
 
@@ -161,9 +175,113 @@ class MonthlySummaryViewModel: ObservableObject {
         }.sorted { $0.total > $1.total }
     }
 
+    /// Gráfico de pizza completo: todas as categorias (transações + gastos fixos + parcelamentos)
+    var pieDataComplete: [PieCategoryData] {
+        // Dicionário para agrupar todos os valores por categoria
+        // Chave: categoryId ou nome da categoria de gasto fixo
+        // Valor: (nome, colorHex, iconName, total)
+        var categoryData: [String: (name: String, colorHex: String, iconName: String, total: Double)] = [:]
+
+        // 1. Adicionar categorias das transações normais (sem parcelamentos)
+        let expenseTransactions = transactions.filter {
+            $0.type == .expense &&
+            $0.syncStatusEnum != .pendingDelete &&
+            ($0.installments == nil || $0.installments! <= 1)
+        }
+
+        for tx in expenseTransactions {
+            let catId = tx.categoryId ?? "uncategorized"
+            let category = categories.first { $0.id == catId || $0.serverId == catId }
+            let name = category?.name ?? "Sem categoria"
+            let colorHex = category?.colorHex ?? "#999999"
+            let iconName = category?.iconName ?? "questionmark.circle"
+
+            if var existing = categoryData[catId] {
+                existing.total += tx.amountDouble
+                categoryData[catId] = existing
+            } else {
+                categoryData[catId] = (name: name, colorHex: colorHex, iconName: iconName, total: tx.amountDouble)
+            }
+        }
+
+        // 2. Adicionar categorias dos gastos fixos (agrupados por categoria do FixedBill)
+        for bill in activeFixedBillsForMonth {
+            let catKey = "fixedbill_\(bill.displayCategoryName)"
+            let name = bill.displayCategoryName
+            let colorHex = bill.displayCategoryColorHex
+            let iconName = bill.displayCategoryIcon
+
+            if var existing = categoryData[catKey] {
+                existing.total += bill.amountDouble
+                categoryData[catKey] = existing
+            } else {
+                categoryData[catKey] = (name: name, colorHex: colorHex, iconName: iconName, total: bill.amountDouble)
+            }
+        }
+
+        // 3. Adicionar categorias dos parcelamentos (usando o categoryId original da transação)
+        let calendar = Calendar.current
+        let currentYear = currentMonth.year
+        let currentMonthNum = currentMonth.month
+
+        for transaction in installmentTransactions {
+            guard transaction.syncStatusEnum != .pendingDelete,
+                  let totalInstallments = transaction.installments,
+                  totalInstallments > 1 else { continue }
+
+            let startingInstallment = transaction.startingInstallment ?? 1
+            let txYear = calendar.component(.year, from: transaction.date)
+            let txMonth = calendar.component(.month, from: transaction.date)
+            let monthsSinceTransaction = (currentYear - txYear) * 12 + (currentMonthNum - txMonth)
+            let installmentNumber = startingInstallment + monthsSinceTransaction
+
+            // Só incluir se a parcela está dentro do range
+            guard installmentNumber >= 1 && installmentNumber <= totalInstallments else { continue }
+
+            // Usar o mesmo categoryId das transações para agrupar corretamente
+            let catId = transaction.categoryId ?? "uncategorized"
+            let category = categories.first { $0.id == catId || $0.serverId == catId }
+            let name = category?.name ?? "Sem categoria"
+            let colorHex = category?.colorHex ?? "#999999"
+            let iconName = category?.iconName ?? "questionmark.circle"
+
+            let installmentAmount = transaction.amountDouble / Double(totalInstallments)
+
+            if var existing = categoryData[catId] {
+                existing.total += installmentAmount
+                categoryData[catId] = existing
+            } else {
+                categoryData[catId] = (name: name, colorHex: colorHex, iconName: iconName, total: installmentAmount)
+            }
+        }
+
+        // Calcular total
+        let total = categoryData.values.reduce(0) { $0 + $1.total }
+        guard total > 0 else { return [] }
+
+        // Converter para array de PieCategoryData
+        return categoryData.map { (catId, data) in
+            PieCategoryData(
+                categoryId: catId,
+                name: data.name,
+                colorHex: data.colorHex,
+                iconName: data.iconName,
+                total: data.total,
+                percent: (data.total / total) * 100
+            )
+        }.sorted { $0.total > $1.total }
+    }
+
+    /// Mantém compatibilidade - usa transações por padrão
+    var pieData: [PieCategoryData] {
+        pieDataTransactions
+    }
+
     var filteredTransactions: [TransactionItemViewModel] {
         let filtered = transactions
             .filter { $0.syncStatusEnum != .pendingDelete }
+            // Exclude installment transactions (installments > 1)
+            .filter { $0.installments == nil || $0.installments! <= 1 }
             .filter { selectedCategoryId == nil || $0.categoryId == selectedCategoryId }
             .sorted { $0.date > $1.date }
 
@@ -180,13 +298,68 @@ class MonthlySummaryViewModel: ObservableObject {
                 type: tx.type,
                 categoryName: category?.name,
                 categoryColor: category?.color ?? .gray,
+                categoryIcon: category?.iconName ?? "tag.fill",
                 needsUserReview: tx.needsUserReview,
                 isPendingSync: tx.isPendingSync,
                 locationName: tx.locationName,
                 latitude: tx.latitude,
-                longitude: tx.longitude
+                longitude: tx.longitude,
+                cityName: tx.cityName,
+                notes: tx.notes,
+                categoryId: tx.categoryId
             )
         }
+    }
+
+    /// Parcelamentos do mês atual
+    var installmentsForMonth: [InstallmentItemViewModel] {
+        let calendar = Calendar.current
+        let currentYear = currentMonth.year
+        let currentMonthNum = currentMonth.month
+
+        // Usar installmentTransactions que contém todas as transações parceladas (de qualquer mês)
+        let validInstallments = installmentTransactions.filter {
+            $0.syncStatusEnum != .pendingDelete
+        }
+
+        var items: [InstallmentItemViewModel] = []
+
+        for transaction in validInstallments {
+            guard let totalInstallments = transaction.installments else { continue }
+            let startingInstallment = transaction.startingInstallment ?? 1
+
+            // Calculate which installment is due this month
+            let txYear = calendar.component(.year, from: transaction.date)
+            let txMonth = calendar.component(.month, from: transaction.date)
+            let monthsSinceTransaction = (currentYear - txYear) * 12 + (currentMonthNum - txMonth)
+
+            let installmentNumber = startingInstallment + monthsSinceTransaction
+
+            // Only include if this installment is within range
+            if installmentNumber >= 1 && installmentNumber <= totalInstallments {
+                let category = categories.first { $0.id == transaction.categoryId || $0.serverId == transaction.categoryId }
+
+                // O amount armazenado é o valor TOTAL da compra
+                let totalAmount = transaction.amountDouble
+                let installmentAmount = totalAmount / Double(totalInstallments)
+
+                items.append(InstallmentItemViewModel(
+                    id: "\(transaction.id)-\(installmentNumber)",
+                    transactionId: transaction.id,
+                    description: transaction.desc,
+                    installmentAmount: installmentAmount,
+                    totalAmount: totalAmount,
+                    currentInstallment: installmentNumber,
+                    totalInstallments: totalInstallments,
+                    creditCardId: transaction.creditCardId,
+                    categoryName: category?.name,
+                    categoryColor: category?.color ?? AppColors.textSecondary,
+                    categoryIcon: category?.iconName ?? "tag.fill"
+                ))
+            }
+        }
+
+        return items.sorted { $0.description < $1.description }
     }
 
 
@@ -241,7 +414,16 @@ class MonthlySummaryViewModel: ObservableObject {
         // UI já atualizada com dados locais, agora sincroniza
         isLoading = false
 
-        // 2. Sincronizar em background se online
+        // 2. Migrar cityName para transações existentes (apenas uma vez)
+        if !UserDefaults.standard.bool(forKey: "cityName_migration_done") {
+            Task {
+                await transactionRepo.migrateCityNames()
+                UserDefaults.standard.set(true, forKey: "cityName_migration_done")
+                loadFromLocal() // Recarregar após migração
+            }
+        }
+
+        // 3. Sincronizar em background se online
         if networkMonitor.isConnected {
             Task {
                 await syncManager.syncAll()
@@ -260,6 +442,9 @@ class MonthlySummaryViewModel: ObservableObject {
         )
         categories = categoryRepo.getCategories(userId: userId)
         fixedBills = fixedBillRepo.getFixedBills(userId: userId)
+
+        // Carregar todas transações parceladas (independente do mês)
+        installmentTransactions = transactionRepo.getInstallmentTransactions(userId: userId)
 
         // Seed default categories se necessário
         if categories.isEmpty {
@@ -324,6 +509,83 @@ class MonthlySummaryViewModel: ObservableObject {
         updatePendingCount()
     }
 
+    // MARK: - Update Transaction (Local First)
+
+    func updateTransaction(
+        transactionId: String,
+        description: String,
+        amount: Decimal,
+        date: Date,
+        type: TransactionType,
+        categoryId: String?,
+        notes: String? = nil
+    ) async {
+        // Encontrar transação
+        guard let transaction = transactions.first(where: { $0.id == transactionId }) else {
+            return
+        }
+
+        // Atualizar localmente
+        transactionRepo.updateTransaction(
+            transaction,
+            description: description,
+            amount: amount,
+            date: date,
+            type: type,
+            categoryId: categoryId,
+            notes: notes
+        )
+
+        // Atualizar UI imediatamente
+        loadFromLocal()
+        updatePendingCount()
+    }
+
+    // MARK: - Update Installment (Local First)
+
+    func updateInstallment(
+        transactionId: String,
+        description: String,
+        amount: Decimal,
+        categoryId: String?
+    ) async {
+        // Encontrar transação nos parcelamentos
+        guard let transaction = installmentTransactions.first(where: { $0.id == transactionId }) else {
+            return
+        }
+
+        // Atualizar localmente (mantém data, tipo e parcelas originais)
+        transactionRepo.updateTransaction(
+            transaction,
+            description: description,
+            amount: amount,
+            date: transaction.date,
+            type: transaction.type,
+            categoryId: categoryId,
+            notes: transaction.notes
+        )
+
+        // Atualizar UI imediatamente
+        loadFromLocal()
+        updatePendingCount()
+    }
+
+    // MARK: - Delete Installment
+
+    func deleteInstallment(_ transactionId: String) async {
+        // Encontrar transação nos parcelamentos
+        guard let transaction = installmentTransactions.first(where: { $0.id == transactionId }) else {
+            return
+        }
+
+        // Deletar localmente (marca para sync)
+        transactionRepo.deleteTransaction(transaction)
+
+        // Atualizar UI imediatamente
+        loadFromLocal()
+        updatePendingCount()
+    }
+
     // MARK: - Manual Sync
 
     func forceSync() async {
@@ -351,12 +613,18 @@ struct TransactionItemViewModel: Identifiable {
     let type: TransactionType
     let categoryName: String?
     let categoryColor: Color
+    let categoryIcon: String
     let needsUserReview: Bool
     var isPendingSync: Bool = false
     // Location
     var locationName: String?
     var latitude: Double?
     var longitude: Double?
+    var cityName: String?  // Cidade extraída das coordenadas
+    // Notes/Observation
+    var notes: String?
+    // Category ID for filtering
+    var categoryId: String?
 }
 
 struct CreditCardSpending: Identifiable {
@@ -372,4 +640,18 @@ struct CreditCardSpending: Identifiable {
     let paymentStatusText: String
     let isPaymentDueSoon: Bool
     let isPaymentOverdue: Bool
+}
+
+struct InstallmentItemViewModel: Identifiable {
+    let id: String
+    let transactionId: String
+    let description: String
+    let installmentAmount: Double  // Valor da parcela (total / numParcelas)
+    let totalAmount: Double        // Valor total da compra
+    let currentInstallment: Int
+    let totalInstallments: Int
+    let creditCardId: String?
+    let categoryName: String?
+    let categoryColor: Color
+    let categoryIcon: String
 }

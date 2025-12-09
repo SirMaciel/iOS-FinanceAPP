@@ -16,7 +16,7 @@ struct RegisterView: View {
     var body: some View {
         ZStack {
             // Background
-            DarkBackground()
+            AppBackground()
 
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 0) {
@@ -49,26 +49,26 @@ struct RegisterView: View {
 
                     // Form
                     VStack(spacing: 16) {
-                        DarkTextField(
+                        AppTextField(
                             icon: "person",
                             placeholder: "Nome completo",
                             text: $name
                         )
 
-                        DarkTextField(
+                        AppTextField(
                             icon: "envelope",
                             placeholder: "Seu e-mail",
                             text: $email,
                             keyboardType: .emailAddress
                         )
 
-                        DarkSecureField(
+                        AppSecureField(
                             icon: "lock",
                             placeholder: "Sua senha",
                             text: $password
                         )
 
-                        DarkSecureField(
+                        AppSecureField(
                             icon: "lock.shield",
                             placeholder: "Confirme sua senha",
                             text: $confirmPassword
@@ -90,7 +90,7 @@ struct RegisterView: View {
                         }
                         .padding(.vertical, 4)
 
-                        DarkButton(
+                        AppButton(
                             title: "Criar Conta",
                             icon: "arrow.right",
                             isLoading: isLoading,
