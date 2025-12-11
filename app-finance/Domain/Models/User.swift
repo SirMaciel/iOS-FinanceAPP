@@ -6,6 +6,13 @@ struct User: Codable {
     let lastName: String?
     let email: String
 
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case lastName = "last_name"
+        case email
+    }
+
     var fullName: String {
         if let lastName = lastName, !lastName.isEmpty {
             return "\(name) \(lastName)"

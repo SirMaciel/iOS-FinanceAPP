@@ -498,7 +498,7 @@ struct AddCreditCardView: View {
 
     private func dayPicker(selection: Binding<Int>) -> some View {
         Menu {
-            ForEach(1...28, id: \.self) { day in
+            ForEach(1...31, id: \.self) { day in
                 Button(action: { selection.wrappedValue = day }) {
                     Text("\(day)")
                 }

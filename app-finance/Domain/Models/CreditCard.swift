@@ -74,6 +74,7 @@ enum Bank: String, Codable, CaseIterable {
     case willbank = "Will Bank"
     case picpay = "PicPay"
     case trigg = "Trigg"
+    case leroyMerlin = "Leroy Merlin"
     case other = "Outro"
 
     var primaryColor: String {
@@ -103,6 +104,7 @@ enum Bank: String, Codable, CaseIterable {
         case .willbank: return "#FFD700"
         case .picpay: return "#22C25F"
         case .trigg: return "#00FF7F"
+        case .leroyMerlin: return "#78BE20"
         case .other: return "#6B7280"
         }
     }
@@ -296,6 +298,12 @@ struct AvailableBankCards {
 
         // TRIGG
         BankCard(id: "trigg_internacional", bank: .trigg, name: "Internacional", displayName: "Trigg", cardColor: "#00FF7F", tier: .standard, defaultBrand: .visa),
+
+        // LEROY MERLIN (Celebre!)
+        BankCard(id: "leroy_elo_mais", bank: .leroyMerlin, name: "Celebre! Elo Mais", displayName: "Celebre! Elo Mais", cardColor: "#78BE20", tier: .standard, defaultBrand: .elo),
+        BankCard(id: "leroy_elo_grafite", bank: .leroyMerlin, name: "Celebre! Elo Grafite", displayName: "Celebre! Elo Grafite", cardColor: "#4A4A4A", tier: .platinum, defaultBrand: .elo),
+        BankCard(id: "leroy_elo_nanquim", bank: .leroyMerlin, name: "Celebre! Elo Nanquim", displayName: "Celebre! Elo Nanquim", cardColor: "#1A1A1A", tier: .black, defaultBrand: .elo),
+        BankCard(id: "leroy_celebre_pro", bank: .leroyMerlin, name: "Celebre! Pro", displayName: "Celebre! Pro", cardColor: "#2D5016", tier: .platinum, defaultBrand: .elo),
 
         // OUTRO
         BankCard(id: "other_standard", bank: .other, name: "Outro", displayName: "Outro Cartão", cardColor: "#6B7280", tier: .standard, defaultBrand: .visa)

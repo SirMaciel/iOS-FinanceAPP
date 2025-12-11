@@ -113,13 +113,14 @@ struct MonthlySummaryView: View {
                         await viewModel.deleteInstallment(transactionId)
                     }
                 },
-                onUpdate: { transactionId, description, amount, categoryId in
+                onUpdate: { transactionId, description, amount, categoryId, purchaseDate in
                     Task {
                         await viewModel.updateInstallment(
                             transactionId: transactionId,
                             description: description,
                             amount: amount,
-                            categoryId: categoryId
+                            categoryId: categoryId,
+                            date: purchaseDate
                         )
                     }
                 }
@@ -178,17 +179,17 @@ struct MonthlySummaryView: View {
                 categories: viewModel.categories,
                 onDelete: {
                     Task {
-                        await viewModel.deleteTransaction(installment.transactionId)
+                        await viewModel.deleteInstallment(installment.transactionId)
                     }
                     selectedInstallment = nil
                 },
-                onUpdate: { transactionId, description, totalAmount, categoryId in
+                onUpdate: { transactionId, description, totalAmount, categoryId, purchaseDate in
                     Task {
                         await viewModel.updateTransaction(
                             transactionId: transactionId,
                             description: description,
                             amount: totalAmount,
-                            date: Date(),
+                            date: purchaseDate,
                             type: .expense,
                             categoryId: categoryId,
                             notes: nil
@@ -572,6 +573,12 @@ struct FixedBillSummaryRow: View {
 struct InstallmentSummaryRow: View {
     let installment: InstallmentItemViewModel
 
+    private var formattedPurchaseDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        return formatter.string(from: installment.purchaseDate)
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Icon
@@ -608,9 +615,19 @@ struct InstallmentSummaryRow: View {
                     .cornerRadius(6)
                 }
 
-                Text(installment.categoryName ?? "Sem categoria")
-                    .font(.caption)
-                    .foregroundColor(AppColors.textSecondary)
+                HStack(spacing: 6) {
+                    Text(installment.categoryName ?? "Sem categoria")
+                        .font(.caption)
+                        .foregroundColor(AppColors.textSecondary)
+
+                    Circle()
+                        .fill(AppColors.textTertiary)
+                        .frame(width: 3, height: 3)
+
+                    Text(formattedPurchaseDate)
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
+                }
             }
 
             Spacer()
@@ -638,7 +655,7 @@ struct InstallmentsListView: View {
     @Environment(\.dismiss) private var dismiss
     let initialMonth: MonthRef
     var onDelete: ((String) -> Void)? = nil
-    var onUpdate: ((String, String, Decimal, String?) -> Void)? = nil
+    var onUpdate: ((String, String, Decimal, String?, Date) -> Void)? = nil
 
     @State private var currentMonth: MonthRef
     @State private var selectedInstallment: InstallmentItemViewModel?
@@ -655,18 +672,53 @@ struct InstallmentsListView: View {
         UserDefaults.standard.string(forKey: "user_id") ?? ""
     }
 
-    init(initialMonth: MonthRef, onDelete: ((String) -> Void)? = nil, onUpdate: ((String, String, Decimal, String?) -> Void)? = nil) {
+    init(initialMonth: MonthRef, onDelete: ((String) -> Void)? = nil, onUpdate: ((String, String, Decimal, String?, Date) -> Void)? = nil) {
         self.initialMonth = initialMonth
         self.onDelete = onDelete
         self.onUpdate = onUpdate
         _currentMonth = State(initialValue: initialMonth)
     }
 
+    /// Calcula o primeiro mês de vencimento da fatura baseado na data da compra e dia de fechamento do cartão
+    ///
+    /// Regras:
+    /// - Compra ANTES ou NO DIA do fechamento: entra na fatura atual → vence no próximo mês
+    /// - Compra DEPOIS do fechamento: entra na próxima fatura → vence em 2 meses
+    private func calculateFirstDueMonth(purchaseDate: Date, closingDay: Int) -> (year: Int, month: Int) {
+        let calendar = Calendar.current
+        let purchaseDay = calendar.component(.day, from: purchaseDate)
+        let purchaseMonth = calendar.component(.month, from: purchaseDate)
+        let purchaseYear = calendar.component(.year, from: purchaseDate)
+
+        var dueMonth: Int
+        var dueYear: Int
+
+        if purchaseDay <= closingDay {
+            // Compra antes ou no dia do fechamento
+            // Fatura fecha neste mês, vence no próximo
+            dueMonth = purchaseMonth + 1
+            dueYear = purchaseYear
+        } else {
+            // Compra depois do fechamento
+            // Fatura fecha no próximo mês, vence em 2 meses
+            dueMonth = purchaseMonth + 2
+            dueYear = purchaseYear
+        }
+
+        // Ajustar virada de ano
+        while dueMonth > 12 {
+            dueMonth -= 12
+            dueYear += 1
+        }
+
+        return (dueYear, dueMonth)
+    }
+
     /// Calcula os parcelamentos para o mês atual
     private var installmentsForMonth: [InstallmentItemViewModel] {
-        let calendar = Calendar.current
         let currentYear = currentMonth.year
         let currentMonthNum = currentMonth.month
+        let creditCardRepo = CreditCardRepository.shared
 
         let validInstallments = installmentTransactions.filter {
             $0.syncStatusEnum != .pendingDelete
@@ -676,14 +728,24 @@ struct InstallmentsListView: View {
 
         for transaction in validInstallments {
             guard let totalInstallments = transaction.installments else { continue }
-            let startingInstallment = transaction.startingInstallment ?? 1
 
-            let txYear = calendar.component(.year, from: transaction.date)
-            let txMonth = calendar.component(.month, from: transaction.date)
-            let monthsSinceTransaction = (currentYear - txYear) * 12 + (currentMonthNum - txMonth)
+            // Buscar o dia de fechamento do cartão associado
+            var closingDay = 1
+            if let cardId = transaction.creditCardId,
+               let card = creditCardRepo.getCreditCard(id: cardId) {
+                closingDay = card.closingDay
+            }
 
-            let installmentNumber = startingInstallment + monthsSinceTransaction
+            // Calcular o primeiro mês de vencimento baseado na data da compra e fechamento
+            let firstDueMonth = calculateFirstDueMonth(purchaseDate: transaction.date, closingDay: closingDay)
 
+            // Calcular quantos meses se passaram desde o primeiro vencimento
+            let monthsSinceFirstDue = (currentYear - firstDueMonth.year) * 12 + (currentMonthNum - firstDueMonth.month)
+
+            // O número da parcela é baseado em quantos meses desde o primeiro vencimento (parcela 1)
+            let installmentNumber = 1 + monthsSinceFirstDue
+
+            // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
             if installmentNumber >= 1 && installmentNumber <= totalInstallments {
                 let category = categories.first { $0.id == transaction.categoryId || $0.serverId == transaction.categoryId }
 
@@ -701,7 +763,8 @@ struct InstallmentsListView: View {
                     creditCardId: transaction.creditCardId,
                     categoryName: category?.name,
                     categoryColor: category?.color ?? AppColors.textSecondary,
-                    categoryIcon: category?.iconName ?? "tag.fill"
+                    categoryIcon: category?.iconName ?? "tag.fill",
+                    purchaseDate: transaction.date
                 ))
             }
         }
@@ -762,8 +825,8 @@ struct InstallmentsListView: View {
                     selectedInstallment = nil
                     loadData()
                 },
-                onUpdate: { transactionId, description, amount, categoryId in
-                    onUpdate?(transactionId, description, amount, categoryId)
+                onUpdate: { transactionId, description, amount, categoryId, purchaseDate in
+                    onUpdate?(transactionId, description, amount, categoryId, purchaseDate)
                     selectedInstallment = nil
                     loadData()
                 }
@@ -772,7 +835,7 @@ struct InstallmentsListView: View {
         .sheet(isPresented: $showAddInstallment) {
             AddExistingInstallmentSheet(
                 creditCards: creditCards,
-                onSave: { cardId, description, totalAmount, totalInstallments, startingInstallment, date, categoryId in
+                onSave: { cardId, description, totalAmount, totalInstallments, startingInstallment, date, categoryId, notes in
                     addInstallment(
                         cardId: cardId,
                         description: description,
@@ -780,7 +843,8 @@ struct InstallmentsListView: View {
                         totalInstallments: totalInstallments,
                         startingInstallment: startingInstallment,
                         date: date,
-                        categoryId: categoryId
+                        categoryId: categoryId,
+                        notes: notes
                     )
                 }
             )
@@ -928,7 +992,8 @@ struct InstallmentsListView: View {
         totalInstallments: Int,
         startingInstallment: Int,
         date: Date,
-        categoryId: String?
+        categoryId: String?,
+        notes: String? = nil
     ) {
         _ = transactionRepo.createTransaction(
             userId: userId,
@@ -938,13 +1003,9 @@ struct InstallmentsListView: View {
             description: description,
             categoryId: categoryId,
             creditCardId: cardId,
-            locationName: nil,
-            latitude: nil,
-            longitude: nil,
-            cityName: nil,
             installments: totalInstallments,
             startingInstallment: startingInstallment,
-            notes: nil
+            notes: notes
         )
         loadData()
     }
@@ -957,7 +1018,7 @@ struct SummaryInstallmentDetailSheet: View {
     let installment: InstallmentItemViewModel
     let categories: [Category]
     let onDelete: () -> Void
-    var onUpdate: ((String, String, Decimal, String?) -> Void)? = nil
+    var onUpdate: ((String, String, Decimal, String?, Date) -> Void)? = nil
 
     @State private var showingDeleteConfirmation = false
     @State private var showingEditSheet = false
@@ -1202,8 +1263,8 @@ struct SummaryInstallmentDetailSheet: View {
             SummaryEditInstallmentSheet(
                 installment: installment,
                 categories: categories,
-                onSave: { description, amount, categoryId in
-                    onUpdate?(installment.transactionId, description, amount, categoryId)
+                onSave: { description, amount, categoryId, date in
+                    onUpdate?(installment.transactionId, description, amount, categoryId, date)
                     dismiss()
                 }
             )
@@ -1226,19 +1287,21 @@ struct SummaryEditInstallmentSheet: View {
     @Environment(\.dismiss) private var dismiss
     let installment: InstallmentItemViewModel
     let categories: [Category]
-    let onSave: (String, Decimal, String?) -> Void
+    let onSave: (String, Decimal, String?, Date) -> Void
 
     @State private var name: String
     @State private var amountText: String
     @State private var selectedCategory: Category?
+    @State private var purchaseDate: Date
 
-    init(installment: InstallmentItemViewModel, categories: [Category], onSave: @escaping (String, Decimal, String?) -> Void) {
+    init(installment: InstallmentItemViewModel, categories: [Category], onSave: @escaping (String, Decimal, String?, Date) -> Void) {
         self.installment = installment
         self.categories = categories
         self.onSave = onSave
         _name = State(initialValue: installment.description)
         _amountText = State(initialValue: String(format: "%.2f", installment.totalAmount).replacingOccurrences(of: ".", with: ","))
         _selectedCategory = State(initialValue: categories.first { $0.name == installment.categoryName })
+        _purchaseDate = State(initialValue: installment.purchaseDate)
     }
 
     var body: some View {
@@ -1401,6 +1464,35 @@ struct SummaryEditInstallmentSheet: View {
                             }
                         }
 
+                        // Data da compra
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Data da compra")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppColors.textSecondary)
+
+                            HStack {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppColors.accentBlue)
+
+                                DatePicker("", selection: $purchaseDate, displayedComponents: .date)
+                                    .datePickerStyle(.compact)
+                                    .labelsHidden()
+                                    .environment(\.locale, Locale(identifier: "pt_BR"))
+                                    .tint(AppColors.textPrimary)
+
+                                Spacer()
+                            }
+                            .padding(16)
+                            .background(AppColors.bgSecondary)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(AppColors.cardBorder, lineWidth: 1)
+                            )
+                            .cornerRadius(16)
+                        }
+
                         // Info do parcelamento (não editável)
                         VStack(alignment: .leading, spacing: 12) {
                             Text("Informações do Parcelamento")
@@ -1447,7 +1539,7 @@ struct SummaryEditInstallmentSheet: View {
     private func saveChanges() {
         guard let amount = parseAmount(amountText) else { return }
         let decimalAmount = Decimal(amount)
-        onSave(name, decimalAmount, selectedCategory?.id)
+        onSave(name, decimalAmount, selectedCategory?.id, purchaseDate)
     }
 
     private func parseAmount(_ text: String) -> Double? {
@@ -2382,7 +2474,7 @@ struct EditTransactionSheet: View {
             CategoryManagementSheet(
                 categories: categories,
                 onUpdate: { category, newName, colorHex in
-                    categoryRepo.updateCategory(category, name: newName, colorHex: colorHex)
+                    let _ = categoryRepo.updateCategory(category, name: newName, colorHex: colorHex)
                     loadCategories()
                 },
                 onDelete: { category in

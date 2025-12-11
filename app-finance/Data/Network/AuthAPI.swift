@@ -58,6 +58,11 @@ struct ResetPasswordRequest: Codable {
 struct UpdateProfileRequest: Codable {
     let name: String
     let lastName: String
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case lastName = "last_name"
+    }
 }
 
 struct RequestPasswordChangeRequest: Codable {
@@ -292,7 +297,7 @@ class AuthAPI {
     /// Atualiza nome e sobrenome do usuário
     func updateProfile(name: String, lastName: String) async throws -> UpdateProfileResponse {
         let request = UpdateProfileRequest(name: name, lastName: lastName)
-        return try await client.request("/auth/profile", method: "PATCH", body: request)
+        return try await client.request("/auth/profile", method: "PUT", body: request)
     }
 
     /// Busca dados do usuário atual

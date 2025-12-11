@@ -1,6 +1,7 @@
 import Foundation
 import SwiftData
 import Combine
+import UIKit
 
 // MARK: - Sync Manager
 
@@ -19,23 +20,94 @@ final class SyncManager: ObservableObject {
     private let creditCardsAPI = CreditCardsAPI.shared
     private let fixedBillsAPI = FixedBillsAPI.shared
 
+    /// Timer para sync periódico (multi-device)
+    private var periodicSyncTimer: Timer?
+
+    /// Intervalo de sync periódico (30 segundos)
+    private let periodicSyncInterval: TimeInterval = 30
+
     private init() {
         print("🔄 [Sync] SyncManager inicializado")
         setupNetworkObserver()
+        setupAppLifecycleObserver()
         loadLastSyncDate()
+        startPeriodicSync()
+    }
+
+    nonisolated func cleanup() {
+        Task { @MainActor in
+            periodicSyncTimer?.invalidate()
+            periodicSyncTimer = nil
+        }
     }
 
     // MARK: - Setup
 
     private func setupNetworkObserver() {
+        // Sync imediato quando conectar (reduzido de 2s para 0.5s)
         NotificationCenter.default.publisher(for: .networkBecameAvailable)
-            .debounce(for: .seconds(2), scheduler: DispatchQueue.main)
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
+                print("🔄 [Sync] Rede disponível - iniciando sync imediato")
                 Task {
                     await self?.syncAll()
                 }
             }
             .store(in: &cancellables)
+    }
+
+    private func setupAppLifecycleObserver() {
+        // Sync quando app volta ao foreground
+        NotificationCenter.default.publisher(for: UIApplication.willEnterForegroundNotification)
+            .sink { [weak self] _ in
+                print("🔄 [Sync] App voltou ao foreground - sincronizando")
+                Task {
+                    await self?.syncAll()
+                }
+            }
+            .store(in: &cancellables)
+
+        // Sync quando app se torna ativo
+        NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)
+            .debounce(for: .milliseconds(500), scheduler: DispatchQueue.main)
+            .sink { [weak self] _ in
+                self?.startPeriodicSync()
+            }
+            .store(in: &cancellables)
+
+        // Parar sync periódico quando app vai para background
+        NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)
+            .sink { [weak self] _ in
+                self?.stopPeriodicSync()
+            }
+            .store(in: &cancellables)
+    }
+
+    // MARK: - Periodic Sync (Multi-device)
+
+    private func startPeriodicSync() {
+        stopPeriodicSync()
+
+        periodicSyncTimer = Timer.scheduledTimer(withTimeInterval: periodicSyncInterval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard NetworkMonitor.shared.isConnected else { return }
+                print("🔄 [Sync] Sync periódico (multi-device)")
+                await self?.syncAll()
+            }
+        }
+        print("🔄 [Sync] Sync periódico iniciado (cada \(Int(periodicSyncInterval))s)")
+    }
+
+    private func stopPeriodicSync() {
+        periodicSyncTimer?.invalidate()
+        periodicSyncTimer = nil
+        print("🔄 [Sync] Sync periódico parado")
+    }
+
+    /// Força sync imediato (chamado manualmente ou por repositories)
+    func syncNow() async {
+        print("🔄 [Sync] Sync forçado solicitado")
+        await syncAll()
     }
 
     private func loadLastSyncDate() {
@@ -162,6 +234,9 @@ final class SyncManager: ObservableObject {
         try await pullCategories(context: context)
 
         try context.save()
+
+        // Notificar que categorias foram atualizadas
+        NotificationCenter.default.post(name: .categoriesUpdated, object: nil)
     }
 
     private func pushPendingCategories(context: ModelContext) async throws {
@@ -284,6 +359,9 @@ final class SyncManager: ObservableObject {
         try await pullCreditCards(context: context)
 
         try context.save()
+
+        // Notificar que cartões foram atualizados
+        NotificationCenter.default.post(name: .creditCardsUpdated, object: nil)
     }
 
     private func pushPendingCreditCards(context: ModelContext) async throws {
@@ -393,6 +471,9 @@ final class SyncManager: ObservableObject {
         try await pullFixedBills(context: context)
 
         try context.save()
+
+        // Notificar que contas fixas foram atualizadas
+        NotificationCenter.default.post(name: .fixedBillsUpdated, object: nil)
     }
 
     private func pushPendingFixedBills(context: ModelContext) async throws {
@@ -520,6 +601,9 @@ final class SyncManager: ObservableObject {
         try await pullTransactions(context: context)
 
         try context.save()
+
+        // Notificar que transações foram atualizadas
+        NotificationCenter.default.post(name: .transactionsUpdated, object: nil)
     }
 
     private func pushPendingTransactions(context: ModelContext) async throws {

@@ -280,6 +280,13 @@ struct ProfileHeader: View {
     @EnvironmentObject var authManager: AuthManager
     let onProfileTap: () -> Void
 
+    private var fullName: String {
+        let firstName = authManager.userName ?? ""
+        let lastName = authManager.userLastName ?? ""
+        let combined = [firstName, lastName].filter { !$0.isEmpty }.joined(separator: " ")
+        return combined.isEmpty ? "Usuário" : combined
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             // Profile photo + greeting
@@ -308,7 +315,7 @@ struct ProfileHeader: View {
                             .font(.subheadline)
                             .foregroundColor(AppColors.textSecondary)
 
-                        Text(authManager.userName ?? "Usuário")
+                        Text(fullName)
                             .font(.headline)
                             .fontWeight(.bold)
                             .foregroundColor(AppColors.textPrimary)
@@ -580,7 +587,7 @@ struct CreditCardView: View {
         .sheet(isPresented: $showAddInstallment) {
             AddExistingInstallmentSheet(
                 creditCards: creditCards,
-                onSave: { cardId, description, totalAmount, totalInstallments, startingInstallment, date, categoryId in
+                onSave: { cardId, description, totalAmount, totalInstallments, startingInstallment, date, categoryId, notes in
                     addExistingInstallment(
                         cardId: cardId,
                         description: description,
@@ -588,7 +595,8 @@ struct CreditCardView: View {
                         totalInstallments: totalInstallments,
                         startingInstallment: startingInstallment,
                         date: date,
-                        categoryId: categoryId
+                        categoryId: categoryId,
+                        notes: notes
                     )
                 }
             )
@@ -634,14 +642,15 @@ struct CreditCardView: View {
                     deleteTransaction(item.transactionId)
                     selectedInstallmentItem = nil
                 },
-                onEdit: { desc, totalAmount, totalInstallments, currentInstallment, categoryId in
+                onEdit: { desc, totalAmount, totalInstallments, currentInstallment, categoryId, date in
                     updateInstallment(
                         transactionId: item.transactionId,
                         description: desc,
                         totalAmount: totalAmount,
                         totalInstallments: totalInstallments,
                         currentInstallment: currentInstallment,
-                        categoryId: categoryId
+                        categoryId: categoryId,
+                        date: date
                     )
                     selectedInstallmentItem = nil
                 }
@@ -1698,7 +1707,8 @@ struct CreditCardView: View {
                     creditCardId: transaction.creditCardId,
                     categoryName: category?.name,
                     categoryColor: categoryColor,
-                    categoryIcon: categoryIcon
+                    categoryIcon: categoryIcon,
+                    purchaseDate: transaction.date
                 ))
             }
         }
@@ -1715,32 +1725,35 @@ struct CreditCardView: View {
     ) -> Int? {
         let calendar = Calendar.current
 
-        // Determine the first billing month based on transaction date and closing day
+        // Determine the first DUE month (vencimento) based on transaction date and closing day
+        // Se compra <= fechamento: vence no próximo mês
+        // Se compra > fechamento: vence em 2 meses
         let transactionDay = calendar.component(.day, from: transactionDate)
-        var firstBillingMonth: Date
+        var firstDueMonth: Date
+
+        let components = calendar.dateComponents([.year, .month], from: transactionDate)
+        let transactionMonthStart = calendar.date(from: components) ?? transactionDate
 
         if transactionDay <= closingDay {
-            // Transaction is before closing, first installment is in this month's bill
-            let components = calendar.dateComponents([.year, .month], from: transactionDate)
-            firstBillingMonth = calendar.date(from: components) ?? transactionDate
+            // Compra antes ou no dia do fechamento: vence no próximo mês
+            firstDueMonth = calendar.date(byAdding: .month, value: 1, to: transactionMonthStart) ?? transactionMonthStart
         } else {
-            // Transaction is after closing, first installment is in next month's bill
-            let components = calendar.dateComponents([.year, .month], from: transactionDate)
-            firstBillingMonth = calendar.date(from: components) ?? transactionDate
-            firstBillingMonth = calendar.date(byAdding: .month, value: 1, to: firstBillingMonth) ?? firstBillingMonth
+            // Compra depois do fechamento: vence em 2 meses
+            firstDueMonth = calendar.date(byAdding: .month, value: 2, to: transactionMonthStart) ?? transactionMonthStart
         }
 
-        // Calculate months between first billing month and display month
+        // Calculate months between first due month and display month
         let displayComponents = calendar.dateComponents([.year, .month], from: displayMonth)
         let displayMonthStart = calendar.date(from: displayComponents) ?? displayMonth
 
-        let monthsDiff = calendar.dateComponents([.month], from: firstBillingMonth, to: displayMonthStart).month ?? 0
+        let monthsDiff = calendar.dateComponents([.month], from: firstDueMonth, to: displayMonthStart).month ?? 0
 
         // Calculate which installment number this would be
-        let installmentNumber = startingInstallment + monthsDiff
+        // O número da parcela é baseado em quantos meses desde o primeiro vencimento (parcela 1)
+        let installmentNumber = 1 + monthsDiff
 
-        // Check if this installment exists
-        if installmentNumber >= startingInstallment && installmentNumber <= totalInstallments {
+        // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
+        if installmentNumber >= 1 && installmentNumber <= totalInstallments {
             return installmentNumber
         }
 
@@ -1754,7 +1767,8 @@ struct CreditCardView: View {
         totalInstallments: Int,
         startingInstallment: Int,
         date: Date,
-        categoryId: String?
+        categoryId: String?,
+        notes: String? = nil
     ) {
         guard let userId = authManager.userId else { return }
 
@@ -1767,7 +1781,8 @@ struct CreditCardView: View {
             categoryId: categoryId,
             creditCardId: cardId,
             installments: totalInstallments,
-            startingInstallment: startingInstallment
+            startingInstallment: startingInstallment,
+            notes: notes
         )
 
         loadTransactions()
@@ -1871,7 +1886,8 @@ struct CreditCardView: View {
         totalAmount: Decimal,
         totalInstallments: Int,
         currentInstallment: Int,
-        categoryId: String?
+        categoryId: String?,
+        date: Date
     ) {
         guard let transaction = cardTransactions.first(where: { $0.id == transactionId }) else { return }
 
@@ -1882,6 +1898,7 @@ struct CreditCardView: View {
         transaction.amount = installmentAmount
         transaction.installments = totalInstallments
         transaction.startingInstallment = currentInstallment
+        transaction.date = date
         if let categoryId = categoryId {
             transaction.categoryId = categoryId
         }
@@ -2374,6 +2391,7 @@ struct InstallmentItem: Identifiable {
     let categoryName: String?
     let categoryColor: Color
     let categoryIcon: String
+    let purchaseDate: Date         // Data da compra original
 }
 
 // MARK: - Installment Row Card
@@ -2381,6 +2399,12 @@ struct InstallmentItem: Identifiable {
 struct InstallmentRowCard: View {
     let item: InstallmentItem
     let card: CreditCard?
+
+    private var formattedPurchaseDate: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "dd/MM/yyyy"
+        return formatter.string(from: item.purchaseDate)
+    }
 
     var body: some View {
         HStack(spacing: 12) {
@@ -2412,6 +2436,15 @@ struct InstallmentRowCard: View {
                         .padding(.vertical, 3)
                         .background(AppColors.accentBlue.opacity(0.15))
                         .cornerRadius(6)
+
+                    // Purchase date
+                    Circle()
+                        .fill(AppColors.textTertiary)
+                        .frame(width: 4, height: 4)
+
+                    Text(formattedPurchaseDate)
+                        .font(.caption)
+                        .foregroundColor(AppColors.textTertiary)
 
                     // Card name with separator
                     if let card = card {
@@ -2463,7 +2496,7 @@ struct InstallmentDetailSheet: View {
     let item: InstallmentItem
     let card: CreditCard?
     let onDelete: () -> Void
-    var onEdit: ((String, Decimal, Int, Int, String?) -> Void)? = nil
+    var onEdit: ((String, Decimal, Int, Int, String?, Date) -> Void)? = nil
 
     @State private var showDeleteConfirmation = false
     @State private var showingEditSheet = false
@@ -2746,8 +2779,8 @@ struct InstallmentDetailSheet: View {
             EditInstallmentSheet(
                 item: item,
                 card: card,
-                onSave: { desc, amount, totalInstallments, currentInstallment, categoryId in
-                    onEdit?(desc, amount, totalInstallments, currentInstallment, categoryId)
+                onSave: { desc, amount, totalInstallments, currentInstallment, categoryId, date in
+                    onEdit?(desc, amount, totalInstallments, currentInstallment, categoryId, date)
                     showingEditSheet = false
                     dismiss()
                 }
@@ -2764,12 +2797,13 @@ struct EditInstallmentSheet: View {
 
     let item: InstallmentItem
     let card: CreditCard?
-    let onSave: (String, Decimal, Int, Int, String?) -> Void
+    let onSave: (String, Decimal, Int, Int, String?, Date) -> Void
 
     @State private var name: String
     @State private var totalAmountText: String
     @State private var totalInstallments: Int
     @State private var currentInstallment: Int
+    @State private var purchaseDate: Date
     @State private var selectedCategory: Category?
     @State private var categories: [Category] = []
 
@@ -2785,11 +2819,12 @@ struct EditInstallmentSheet: View {
     @State private var customCategoryColorHex = "#14B8A6"
     @State private var showingIconPicker = false
     @State private var showingColorPicker = false
+    @State private var showingCategoryManagement = false
 
     private let categoryRepo = CategoryRepository.shared
     private let categorizationService = TransactionCategorizationService.shared
 
-    init(item: InstallmentItem, card: CreditCard?, onSave: @escaping (String, Decimal, Int, Int, String?) -> Void) {
+    init(item: InstallmentItem, card: CreditCard?, onSave: @escaping (String, Decimal, Int, Int, String?, Date) -> Void) {
         self.item = item
         self.card = card
         self.onSave = onSave
@@ -2799,6 +2834,7 @@ struct EditInstallmentSheet: View {
         _totalAmountText = State(initialValue: String(format: "%.2f", totalAmount).replacingOccurrences(of: ".", with: ","))
         _totalInstallments = State(initialValue: item.totalInstallments)
         _currentInstallment = State(initialValue: item.currentInstallment)
+        _purchaseDate = State(initialValue: item.purchaseDate)
     }
 
     private var totalAmount: Decimal {
@@ -2917,6 +2953,36 @@ struct EditInstallmentSheet: View {
                             }
                         }
                         .animation(.easeInOut(duration: 0.2), value: isAILoading)
+                        .padding(.horizontal)
+
+                        // Data da compra
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Data da compra")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppColors.textSecondary)
+
+                            HStack {
+                                Image(systemName: "calendar")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppColors.accentBlue)
+
+                                DatePicker("", selection: $purchaseDate, displayedComponents: .date)
+                                    .datePickerStyle(.compact)
+                                    .labelsHidden()
+                                    .environment(\.locale, Locale(identifier: "pt_BR"))
+                                    .tint(AppColors.textPrimary)
+
+                                Spacer()
+                            }
+                            .padding(16)
+                            .background(AppColors.bgSecondary)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(AppColors.cardBorder, lineWidth: 1)
+                            )
+                            .cornerRadius(16)
+                        }
                         .padding(.horizontal)
 
                         // Valor total (segundo, após o nome)
@@ -3100,6 +3166,19 @@ struct EditInstallmentSheet: View {
         .sheet(isPresented: $showingColorPicker) {
             ColorPickerSheet(selectedColorHex: $customCategoryColorHex)
         }
+        .sheet(isPresented: $showingCategoryManagement) {
+            CategoryManagementSheet(
+                categories: categories,
+                onUpdate: { category, newName, colorHex in
+                    let _ = categoryRepo.updateCategory(category, name: newName, colorHex: colorHex)
+                    loadCategories()
+                },
+                onDelete: { category in
+                    categoryRepo.deleteCategory(category)
+                    loadCategories()
+                }
+            )
+        }
     }
 
     // MARK: - Category Section
@@ -3147,6 +3226,18 @@ struct EditInstallmentSheet: View {
                         HStack {
                             Image(systemName: "plus.circle")
                             Text("Criar categoria personalizada")
+                        }
+                    }
+
+                    Divider()
+
+                    // Manage categories option
+                    Button(action: {
+                        showingCategoryManagement = true
+                    }) {
+                        HStack {
+                            Image(systemName: "gear")
+                            Text("Gerenciar Categorias")
                         }
                     }
                 } label: {
@@ -3440,16 +3531,23 @@ struct EditInstallmentSheet: View {
 
         // Create custom category if needed
         if isCustomCategory && !customCategoryName.isEmpty, let userId = authManager.userId {
-            let newCategory = categoryRepo.createCategory(
+            if let newCategory = categoryRepo.createCategory(
                 userId: userId,
                 name: customCategoryName,
                 colorHex: customCategoryColorHex,
                 iconName: customCategoryIcon
-            )
-            categoryId = newCategory.id
+            ) {
+                categoryId = newCategory.id
+            } else {
+                // Categoria já existe - buscar a existente
+                let existingCategories = categoryRepo.getCategories(userId: userId)
+                if let existing = existingCategories.first(where: { $0.name.lowercased() == customCategoryName.lowercased() }) {
+                    categoryId = existing.id
+                }
+            }
         }
 
-        onSave(name, totalAmount, totalInstallments, currentInstallment, categoryId)
+        onSave(name, totalAmount, totalInstallments, currentInstallment, categoryId, purchaseDate)
     }
 
     private func loadCategories() {
@@ -3495,7 +3593,7 @@ struct AddExistingInstallmentSheet: View {
     @EnvironmentObject var authManager: AuthManager
 
     let creditCards: [CreditCard]
-    let onSave: (String, String, Decimal, Int, Int, Date, String?) -> Void
+    let onSave: (String, String, Decimal, Int, Int, Date, String?, String?) -> Void
 
     @State private var selectedCard: CreditCard?
     @State private var description: String = ""
@@ -3505,6 +3603,7 @@ struct AddExistingInstallmentSheet: View {
     @State private var purchaseDate: Date = Date()
     @State private var selectedCategory: Category?
     @State private var categories: [Category] = []
+    @State private var observation: String = ""
 
     // AI Categorization
     @State private var isAILoading = false
@@ -3579,16 +3678,23 @@ struct AddExistingInstallmentSheet: View {
 
                         // Create custom category if needed
                         if isCustomCategory && !customCategoryName.isEmpty, let userId = authManager.userId {
-                            let newCategory = categoryRepo.createCategory(
+                            if let newCategory = categoryRepo.createCategory(
                                 userId: userId,
                                 name: customCategoryName,
                                 colorHex: customCategoryColorHex,
                                 iconName: customCategoryIcon
-                            )
-                            categoryId = newCategory.id
+                            ) {
+                                categoryId = newCategory.id
+                            } else {
+                                // Categoria já existe - buscar a existente
+                                let existingCategories = categoryRepo.getCategories(userId: userId)
+                                if let existing = existingCategories.first(where: { $0.name.lowercased() == customCategoryName.lowercased() }) {
+                                    categoryId = existing.id
+                                }
+                            }
                         }
 
-                        onSave(card.id, description, totalAmount, totalInstallments, startingInstallment, purchaseDate, categoryId)
+                        onSave(card.id, description, totalAmount, totalInstallments, startingInstallment, purchaseDate, categoryId, observation.isEmpty ? nil : observation)
                         dismiss()
                     } label: {
                         Text("Salvar")
@@ -3875,6 +3981,34 @@ struct AddExistingInstallmentSheet: View {
                                     .tint(AppColors.textPrimary)
 
                                 Spacer()
+                            }
+                            .padding(16)
+                            .background(AppColors.bgSecondary)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 16)
+                                    .stroke(AppColors.cardBorder, lineWidth: 1)
+                            )
+                            .cornerRadius(16)
+                        }
+                        .padding(.horizontal)
+
+                        // Observation (Optional)
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Observação (opcional)")
+                                .font(.caption)
+                                .fontWeight(.medium)
+                                .foregroundColor(AppColors.textSecondary)
+
+                            HStack(alignment: .top, spacing: 12) {
+                                Image(systemName: "note.text")
+                                    .font(.system(size: 18))
+                                    .foregroundColor(AppColors.textSecondary)
+                                    .padding(.top, 12)
+
+                                TextField("Adicione uma observação...", text: $observation, axis: .vertical)
+                                    .lineLimit(3...5)
+                                    .font(.body)
+                                    .foregroundColor(AppColors.textPrimary)
                             }
                             .padding(16)
                             .background(AppColors.bgSecondary)

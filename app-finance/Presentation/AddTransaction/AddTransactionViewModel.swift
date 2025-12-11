@@ -192,9 +192,10 @@ class AddTransactionViewModel: ObservableObject {
 
     // MARK: - Category Management
 
-    func updateCategory(_ category: Category, name: String, colorHex: String) {
-        categoryRepo.updateCategory(category, name: name, colorHex: colorHex)
+    func updateCategory(_ category: Category, name: String, colorHex: String) -> Bool {
+        let success = categoryRepo.updateCategory(category, name: name, colorHex: colorHex)
         loadCategories(userId: userId)
+        return success
     }
 
     func deleteCategory(_ category: Category) {
@@ -334,16 +335,22 @@ class AddTransactionViewModel: ObservableObject {
 
         if isCustomCategory && !customCategoryName.isEmpty {
             // Criar categoria customizada
-            let newCategory = categoryRepo.createCategory(
+            if let newCategory = categoryRepo.createCategory(
                 userId: userId,
                 name: customCategoryName,
                 colorHex: customCategoryColorHex,
                 iconName: customCategoryIcon
-            )
-            categoryId = newCategory.id
-
-            // Recarregar categorias
-            loadCategories(userId: userId)
+            ) {
+                categoryId = newCategory.id
+                // Recarregar categorias
+                loadCategories(userId: userId)
+            } else {
+                // Categoria com esse nome já existe - buscar a existente
+                let existingCategories = categoryRepo.getCategories(userId: userId)
+                if let existing = existingCategories.first(where: { $0.name.lowercased() == customCategoryName.lowercased() }) {
+                    categoryId = existing.id
+                }
+            }
         }
 
         // Salvar localmente (será sincronizado automaticamente)

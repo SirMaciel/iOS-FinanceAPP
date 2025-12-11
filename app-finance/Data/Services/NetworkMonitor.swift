@@ -69,4 +69,9 @@ extension Notification.Name {
     static let networkBecameAvailable = Notification.Name("networkBecameAvailable")
     static let syncCompleted = Notification.Name("syncCompleted")
     static let syncFailed = Notification.Name("syncFailed")
+    static let dataUpdatedFromServer = Notification.Name("dataUpdatedFromServer")
+    static let categoriesUpdated = Notification.Name("categoriesUpdated")
+    static let transactionsUpdated = Notification.Name("transactionsUpdated")
+    static let creditCardsUpdated = Notification.Name("creditCardsUpdated")
+    static let fixedBillsUpdated = Notification.Name("fixedBillsUpdated")
 }

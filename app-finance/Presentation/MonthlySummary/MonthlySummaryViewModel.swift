@@ -223,6 +223,7 @@ class MonthlySummaryViewModel: ObservableObject {
         let calendar = Calendar.current
         let currentYear = currentMonth.year
         let currentMonthNum = currentMonth.month
+        let creditCardRepo = CreditCardRepository.shared
 
         for transaction in installmentTransactions {
             guard transaction.syncStatusEnum != .pendingDelete,
@@ -230,12 +231,24 @@ class MonthlySummaryViewModel: ObservableObject {
                   totalInstallments > 1 else { continue }
 
             let startingInstallment = transaction.startingInstallment ?? 1
-            let txYear = calendar.component(.year, from: transaction.date)
-            let txMonth = calendar.component(.month, from: transaction.date)
-            let monthsSinceTransaction = (currentYear - txYear) * 12 + (currentMonthNum - txMonth)
-            let installmentNumber = startingInstallment + monthsSinceTransaction
 
-            // Só incluir se a parcela está dentro do range
+            // Buscar o dia de fechamento do cartão associado
+            var closingDay = 1 // Default caso não tenha cartão
+            if let cardId = transaction.creditCardId,
+               let card = creditCardRepo.getCreditCard(id: cardId) {
+                closingDay = card.closingDay
+            }
+
+            // Calcular o primeiro mês de vencimento baseado na data da compra e fechamento
+            let firstDueMonth = calculateFirstDueMonth(purchaseDate: transaction.date, closingDay: closingDay)
+
+            // Calcular quantos meses se passaram desde o primeiro vencimento
+            let monthsSinceFirstDue = (currentYear - firstDueMonth.year) * 12 + (currentMonthNum - firstDueMonth.month)
+            // O número da parcela é baseado em quantos meses desde o primeiro vencimento (parcela 1)
+            // startingInstallment é usado apenas para filtrar parcelas já pagas
+            let installmentNumber = 1 + monthsSinceFirstDue
+
+            // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
             guard installmentNumber >= 1 && installmentNumber <= totalInstallments else { continue }
 
             // Usar o mesmo categoryId das transações para agrupar corretamente
@@ -312,11 +325,60 @@ class MonthlySummaryViewModel: ObservableObject {
         }
     }
 
+    /// Calcula o primeiro mês de vencimento da fatura baseado na data da compra e dia de fechamento do cartão
+    ///
+    /// Lógica do ciclo de faturamento:
+    /// - O ciclo vai do dia (fechamento + 1) do mês anterior até o dia (fechamento) do mês atual
+    /// - Exemplo: fechamento dia 27 → ciclo de setembro = 28/ago até 27/set
+    /// - A fatura do ciclo de setembro vence em outubro (dia do vencimento)
+    ///
+    /// Regras:
+    /// - Compra ANTES ou NO DIA do fechamento: entra na fatura atual → vence no próximo mês
+    /// - Compra DEPOIS do fechamento: entra na próxima fatura → vence em 2 meses
+    private func calculateFirstDueMonth(purchaseDate: Date, closingDay: Int) -> (year: Int, month: Int) {
+        let calendar = Calendar.current
+        let purchaseDay = calendar.component(.day, from: purchaseDate)
+        var purchaseMonth = calendar.component(.month, from: purchaseDate)
+        var purchaseYear = calendar.component(.year, from: purchaseDate)
+
+        // Determinar o mês de vencimento
+        // Se a compra foi feita ATÉ o dia do fechamento (inclusive),
+        // a fatura fecha neste mês e vence no próximo mês
+        // Se a compra foi feita DEPOIS do fechamento,
+        // a fatura fecha no próximo mês e vence em 2 meses
+
+        var dueMonth: Int
+        var dueYear: Int
+
+        if purchaseDay <= closingDay {
+            // Compra antes ou no dia do fechamento
+            // Fatura fecha neste mês, vence no próximo
+            dueMonth = purchaseMonth + 1
+            dueYear = purchaseYear
+        } else {
+            // Compra depois do fechamento
+            // Fatura fecha no próximo mês, vence em 2 meses
+            dueMonth = purchaseMonth + 2
+            dueYear = purchaseYear
+        }
+
+        // Ajustar virada de ano
+        while dueMonth > 12 {
+            dueMonth -= 12
+            dueYear += 1
+        }
+
+        print("📅 [CALC] Compra dia \(purchaseDay)/\(purchaseMonth)/\(purchaseYear), fechamento dia \(closingDay) → Vencimento: \(dueMonth)/\(dueYear)")
+
+        return (dueYear, dueMonth)
+    }
+
     /// Parcelamentos do mês atual
     var installmentsForMonth: [InstallmentItemViewModel] {
         let calendar = Calendar.current
         let currentYear = currentMonth.year
         let currentMonthNum = currentMonth.month
+        let creditCardRepo = CreditCardRepository.shared
 
         // Usar installmentTransactions que contém todas as transações parceladas (de qualquer mês)
         let validInstallments = installmentTransactions.filter {
@@ -329,14 +391,41 @@ class MonthlySummaryViewModel: ObservableObject {
             guard let totalInstallments = transaction.installments else { continue }
             let startingInstallment = transaction.startingInstallment ?? 1
 
-            // Calculate which installment is due this month
-            let txYear = calendar.component(.year, from: transaction.date)
-            let txMonth = calendar.component(.month, from: transaction.date)
-            let monthsSinceTransaction = (currentYear - txYear) * 12 + (currentMonthNum - txMonth)
+            // Buscar o dia de fechamento do cartão associado
+            var closingDay = 27 // Default: dia 27 caso não tenha cartão
+            if let cardId = transaction.creditCardId,
+               let card = creditCardRepo.getCreditCard(id: cardId) {
+                closingDay = card.closingDay
+                print("🔍 [DEBUG] Cartão encontrado: \(card.cardName), fechamento dia \(closingDay)")
+            } else {
+                print("⚠️ [DEBUG] Cartão NÃO encontrado! creditCardId: \(transaction.creditCardId ?? "nil")")
+            }
 
-            let installmentNumber = startingInstallment + monthsSinceTransaction
+            // Extrair componentes da data da compra
+            let purchaseDay = calendar.component(.day, from: transaction.date)
+            let purchaseMonth = calendar.component(.month, from: transaction.date)
+            let purchaseYear = calendar.component(.year, from: transaction.date)
 
-            // Only include if this installment is within range
+            print("🔍 [DEBUG] Transação: \(transaction.desc)")
+            print("🔍 [DEBUG] Data compra: \(purchaseDay)/\(purchaseMonth)/\(purchaseYear)")
+            print("🔍 [DEBUG] Fechamento cartão: dia \(closingDay)")
+
+            // Calcular o primeiro mês de vencimento baseado na data da compra e fechamento
+            let firstDueMonth = calculateFirstDueMonth(purchaseDate: transaction.date, closingDay: closingDay)
+
+            print("🔍 [DEBUG] Primeiro vencimento calculado: \(firstDueMonth.month)/\(firstDueMonth.year)")
+            print("🔍 [DEBUG] Mês atual sendo visualizado: \(currentMonthNum)/\(currentYear)")
+
+            // Calcular quantos meses se passaram desde o primeiro vencimento
+            let monthsSinceFirstDue = (currentYear - firstDueMonth.year) * 12 + (currentMonthNum - firstDueMonth.month)
+
+            // O número da parcela é baseado em quantos meses desde o primeiro vencimento (parcela 1)
+            // startingInstallment é usado apenas para filtrar parcelas já pagas
+            let installmentNumber = 1 + monthsSinceFirstDue
+
+            print("🔍 [DEBUG] monthsSinceFirstDue: \(monthsSinceFirstDue), installmentNumber: \(installmentNumber), startingInstallment: \(startingInstallment)")
+
+            // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
             if installmentNumber >= 1 && installmentNumber <= totalInstallments {
                 let category = categories.first { $0.id == transaction.categoryId || $0.serverId == transaction.categoryId }
 
@@ -355,7 +444,8 @@ class MonthlySummaryViewModel: ObservableObject {
                     creditCardId: transaction.creditCardId,
                     categoryName: category?.name,
                     categoryColor: category?.color ?? AppColors.textSecondary,
-                    categoryIcon: category?.iconName ?? "tag.fill"
+                    categoryIcon: category?.iconName ?? "tag.fill",
+                    purchaseDate: transaction.date
                 ))
             }
         }
@@ -497,13 +587,18 @@ class MonthlySummaryViewModel: ObservableObject {
     // MARK: - Delete Transaction (Local First)
 
     func deleteTransaction(_ transactionId: String) async {
-        // Encontrar transação
-        guard let transaction = transactions.first(where: { $0.id == transactionId }) else {
+        // Encontrar transação (procurar em transactions E installmentTransactions)
+        let transaction = transactions.first(where: { $0.id == transactionId })
+            ?? installmentTransactions.first(where: { $0.id == transactionId })
+
+        guard let transaction = transaction else {
+            print("⚠️ [ViewModel] Transação não encontrada para deletar: \(transactionId)")
             return
         }
 
         // Deletar localmente (marca para sync)
         transactionRepo.deleteTransaction(transaction)
+        print("✅ [ViewModel] Transação deletada: \(transaction.desc)")
 
         // Atualizar UI imediatamente
         loadFromLocal()
@@ -522,8 +617,12 @@ class MonthlySummaryViewModel: ObservableObject {
         notes: String? = nil,
         paymentMethod: String? = nil
     ) async {
-        // Encontrar transação
-        guard let transaction = transactions.first(where: { $0.id == transactionId }) else {
+        // Encontrar transação (procurar em transactions E installmentTransactions)
+        let transaction = transactions.first(where: { $0.id == transactionId })
+            ?? installmentTransactions.first(where: { $0.id == transactionId })
+
+        guard let transaction = transaction else {
+            print("⚠️ [ViewModel] Transação não encontrada para atualizar: \(transactionId)")
             return
         }
 
@@ -550,19 +649,20 @@ class MonthlySummaryViewModel: ObservableObject {
         transactionId: String,
         description: String,
         amount: Decimal,
-        categoryId: String?
+        categoryId: String?,
+        date: Date? = nil
     ) async {
         // Encontrar transação nos parcelamentos
         guard let transaction = installmentTransactions.first(where: { $0.id == transactionId }) else {
             return
         }
 
-        // Atualizar localmente (mantém data, tipo e parcelas originais)
+        // Atualizar localmente (usa nova data se fornecida, senão mantém a original)
         transactionRepo.updateTransaction(
             transaction,
             description: description,
             amount: amount,
-            date: transaction.date,
+            date: date ?? transaction.date,
             type: transaction.type,
             categoryId: categoryId,
             notes: transaction.notes
@@ -576,13 +676,18 @@ class MonthlySummaryViewModel: ObservableObject {
     // MARK: - Delete Installment
 
     func deleteInstallment(_ transactionId: String) async {
-        // Encontrar transação nos parcelamentos
-        guard let transaction = installmentTransactions.first(where: { $0.id == transactionId }) else {
+        // Encontrar transação (procurar em installmentTransactions E transactions)
+        let transaction = installmentTransactions.first(where: { $0.id == transactionId })
+            ?? transactions.first(where: { $0.id == transactionId })
+
+        guard let transaction = transaction else {
+            print("⚠️ [ViewModel] Parcelamento não encontrado para deletar: \(transactionId)")
             return
         }
 
         // Deletar localmente (marca para sync)
         transactionRepo.deleteTransaction(transaction)
+        print("✅ [ViewModel] Parcelamento deletado: \(transaction.desc)")
 
         // Atualizar UI imediatamente
         loadFromLocal()
@@ -659,4 +764,5 @@ struct InstallmentItemViewModel: Identifiable {
     let categoryName: String?
     let categoryColor: Color
     let categoryIcon: String
+    let purchaseDate: Date         // Data da compra original
 }

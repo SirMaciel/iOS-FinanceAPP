@@ -55,17 +55,19 @@ class CategoriesViewModel: ObservableObject {
         }
     }
 
+    @discardableResult
     func updateCategory(
         _ category: Category,
         name: String?,
         colorHex: String?
-    ) {
-        categoryRepo.updateCategory(
+    ) -> Bool {
+        let success = categoryRepo.updateCategory(
             category,
             name: name,
             colorHex: colorHex
         )
         refreshFromLocal()
+        return success
     }
 
     func deleteCategory(_ category: Category) {

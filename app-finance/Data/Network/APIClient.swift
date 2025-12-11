@@ -12,7 +12,7 @@ enum APIError: Error {
 class APIClient {
     static let shared = APIClient()
 
-    private let baseURL = "https://finance-backend-production-1aa4.up.railway.app"
+    private let baseURL = "https://api.fluxo.money"
     private var token: String?
 
     private init() {}

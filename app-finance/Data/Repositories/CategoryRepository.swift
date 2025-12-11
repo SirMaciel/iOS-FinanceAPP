@@ -62,15 +62,38 @@ final class CategoryRepository: ObservableObject {
         return try? context.fetch(descriptor).first
     }
 
+    /// Verificar se já existe categoria com o mesmo nome para o usuário
+    func categoryExists(userId: String, name: String, excludingId: String? = nil) -> Bool {
+        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let categories = getCategories(userId: userId)
+
+        return categories.contains { category in
+            let categoryName = category.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            let isSameName = categoryName == normalizedName
+
+            if let excludeId = excludingId {
+                return isSameName && category.id != excludeId && category.serverId != excludeId
+            }
+            return isSameName
+        }
+    }
+
     // MARK: - Write Operations (Local First)
 
     /// Criar categoria - salva local primeiro
+    /// Retorna nil se já existir uma categoria com o mesmo nome
     func createCategory(
         userId: String,
         name: String,
         colorHex: String,
         iconName: String = "tag"
-    ) -> Category {
+    ) -> Category? {
+        // Verificar se já existe categoria com esse nome
+        if categoryExists(userId: userId, name: name) {
+            print("⚠️ [Repo] Categoria com nome '\(name)' já existe")
+            return nil
+        }
+
         let category = Category(
             userId: userId,
             name: name,
@@ -90,20 +113,30 @@ final class CategoryRepository: ObservableObject {
             }
         } catch {
             print("❌ [Repo] Erro ao salvar categoria: \(error)")
+            return nil
         }
 
         return category
     }
 
     /// Atualizar categoria
+    /// Retorna false se já existir outra categoria com o mesmo nome
     func updateCategory(
         _ category: Category,
         name: String? = nil,
         colorHex: String? = nil,
         iconName: String? = nil,
         isActive: Bool? = nil
-    ) {
-        if let name = name { category.name = name }
+    ) -> Bool {
+        // Verificar se o novo nome já existe em outra categoria
+        if let newName = name {
+            if categoryExists(userId: category.userId, name: newName, excludingId: category.id) {
+                print("⚠️ [Repo] Categoria com nome '\(newName)' já existe")
+                return false
+            }
+            category.name = newName
+        }
+
         if let colorHex = colorHex { category.colorHex = colorHex }
         if let iconName = iconName { category.iconName = iconName }
         if let isActive = isActive { category.isActive = isActive }
@@ -117,8 +150,10 @@ final class CategoryRepository: ObservableObject {
             Task {
                 await syncManager.syncAll()
             }
+            return true
         } catch {
             print("❌ [Repo] Erro ao atualizar categoria: \(error)")
+            return false
         }
     }
 
