@@ -365,6 +365,17 @@ final class SyncManager: ObservableObject {
                 }
             }
         }
+
+        // Deletar categorias locais que foram removidas do servidor
+        let serverIds = Set(serverCategories.map { $0.id })
+        let localWithServerId = localCategories.filter { $0.serverId != nil && $0.syncStatusEnum == .synced }
+
+        for localCat in localWithServerId {
+            if let serverId = localCat.serverId, !serverIds.contains(serverId) {
+                context.delete(localCat)
+                print("🗑️ [Sync] Categoria removida (deletada no servidor): \(localCat.name)")
+            }
+        }
     }
 
     // MARK: - Credit Cards Sync
@@ -497,6 +508,17 @@ final class SyncManager: ObservableObject {
                 }
             }
         }
+
+        // Deletar cartões locais que foram removidos do servidor
+        let serverIds = Set(serverCards.map { $0.id })
+        let localWithServerId = localCards.filter { $0.serverId != nil && $0.syncStatusEnum == .synced }
+
+        for localCard in localWithServerId {
+            if let serverId = localCard.serverId, !serverIds.contains(serverId) {
+                context.delete(localCard)
+                print("🗑️ [Sync] Cartão removido (deletado no servidor): \(localCard.cardName)")
+            }
+        }
     }
 
     // MARK: - Fixed Bills Sync
@@ -607,6 +629,17 @@ final class SyncManager: ObservableObject {
                     context.insert(newBill)
                     print("📥 [Sync] Conta fixa baixada: \(serverBill.name)")
                 }
+            }
+        }
+
+        // Deletar contas fixas locais que foram removidas do servidor
+        let serverIds = Set(serverBills.map { $0.id })
+        let localWithServerId = localBills.filter { $0.serverId != nil && $0.syncStatusEnum == .synced }
+
+        for localBill in localWithServerId {
+            if let serverId = localBill.serverId, !serverIds.contains(serverId) {
+                context.delete(localBill)
+                print("🗑️ [Sync] Conta fixa removida (deletada no servidor): \(localBill.name)")
             }
         }
     }
@@ -887,6 +920,17 @@ final class SyncManager: ObservableObject {
                     context.insert(newTransaction)
                     print("📥 [Sync] Transação baixada: \(serverTx.description)")
                 }
+            }
+        }
+
+        // Deletar transações locais que foram removidas do servidor
+        let serverIds = Set(serverTransactions.map { $0.id })
+        let localWithServerId = localTransactions.filter { $0.serverId != nil && $0.syncStatusEnum == .synced }
+
+        for localTx in localWithServerId {
+            if let serverId = localTx.serverId, !serverIds.contains(serverId) {
+                context.delete(localTx)
+                print("🗑️ [Sync] Transação removida (deletada no servidor): \(localTx.desc)")
             }
         }
     }
