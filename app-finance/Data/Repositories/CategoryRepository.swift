@@ -215,7 +215,7 @@ final class CategoryRepository: ObservableObject {
                 colorHex: color,
                 iconName: icon,
                 displayOrder: index,
-                syncStatus: .synced  // Defaults locais não precisam sincronizar
+                syncStatus: .pending  // Sincronizar com servidor
             )
             context.insert(category)
         }

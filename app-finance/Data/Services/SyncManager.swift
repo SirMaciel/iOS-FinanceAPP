@@ -227,6 +227,9 @@ final class SyncManager: ObservableObject {
     private func syncCategories() async throws {
         let context = SwiftDataStack.shared.context
 
+        // 0. Corrigir categorias que existem localmente mas não foram sincronizadas
+        try await fixUnsyncedCategories(context: context)
+
         // 1. Push local changes to server
         try await pushPendingCategories(context: context)
 
@@ -237,6 +240,23 @@ final class SyncManager: ObservableObject {
 
         // Notificar que categorias foram atualizadas
         NotificationCenter.default.post(name: .categoriesUpdated, object: nil)
+    }
+
+    private func fixUnsyncedCategories(context: ModelContext) async throws {
+        // Encontrar categorias marcadas como synced mas sem serverId
+        let descriptor = FetchDescriptor<Category>(
+            predicate: #Predicate { $0.syncStatus == "synced" && $0.serverId == nil }
+        )
+        let unsyncedCategories = try context.fetch(descriptor)
+
+        for category in unsyncedCategories {
+            category.syncStatusEnum = .pending
+            print("🔧 [Sync] Categoria '\(category.name)' marcada para sync (sem serverId)")
+        }
+
+        if !unsyncedCategories.isEmpty {
+            try context.save()
+        }
     }
 
     private func pushPendingCategories(context: ModelContext) async throws {
@@ -352,6 +372,9 @@ final class SyncManager: ObservableObject {
     private func syncCreditCards() async throws {
         let context = SwiftDataStack.shared.context
 
+        // 0. Corrigir cartões que existem localmente mas não foram sincronizados
+        try await fixUnsyncedCreditCards(context: context)
+
         // 1. Push local changes to server
         try await pushPendingCreditCards(context: context)
 
@@ -362,6 +385,23 @@ final class SyncManager: ObservableObject {
 
         // Notificar que cartões foram atualizados
         NotificationCenter.default.post(name: .creditCardsUpdated, object: nil)
+    }
+
+    private func fixUnsyncedCreditCards(context: ModelContext) async throws {
+        // Encontrar cartões marcados como synced mas sem serverId
+        let descriptor = FetchDescriptor<CreditCard>(
+            predicate: #Predicate { $0.syncStatus == "synced" && $0.serverId == nil }
+        )
+        let unsyncedCards = try context.fetch(descriptor)
+
+        for card in unsyncedCards {
+            card.syncStatusEnum = .pending
+            print("🔧 [Sync] Cartão '\(card.cardName)' marcado para sync (sem serverId)")
+        }
+
+        if !unsyncedCards.isEmpty {
+            try context.save()
+        }
     }
 
     private func pushPendingCreditCards(context: ModelContext) async throws {
@@ -617,25 +657,27 @@ final class SyncManager: ObservableObject {
                 switch transaction.syncStatusEnum {
                 case .pending:
                     if transaction.serverId == nil {
-                        // Resolver categoryId para serverId
+                        // Resolver categoryId para serverId (APENAS se categoria foi sincronizada)
                         var serverCategoryId: String? = nil
                         if let localCatId = transaction.categoryId {
                             let catDescriptor = FetchDescriptor<Category>(
                                 predicate: #Predicate { $0.id == localCatId || $0.serverId == localCatId }
                             )
                             if let category = try? context.fetch(catDescriptor).first {
-                                serverCategoryId = category.serverId ?? category.id
+                                // Só usar serverId se existir, nunca enviar ID local
+                                serverCategoryId = category.serverId
                             }
                         }
 
-                        // Resolver creditCardId para serverId
+                        // Resolver creditCardId para serverId (APENAS se cartão foi sincronizado)
                         var serverCreditCardId: String? = nil
                         if let localCardId = transaction.creditCardId {
                             let cardDescriptor = FetchDescriptor<CreditCard>(
                                 predicate: #Predicate { $0.id == localCardId || $0.serverId == localCardId }
                             )
                             if let card = try? context.fetch(cardDescriptor).first {
-                                serverCreditCardId = card.serverId ?? card.id
+                                // Só usar serverId se existir, nunca enviar ID local
+                                serverCreditCardId = card.serverId
                             }
                         }
 
@@ -686,7 +728,8 @@ final class SyncManager: ObservableObject {
                                 predicate: #Predicate { $0.id == localCatId }
                             )
                             if let category = try? context.fetch(catDescriptor).first {
-                                serverCategoryId = category.serverId ?? category.id
+                                // Só usar serverId se existir, nunca enviar ID local
+                                serverCategoryId = category.serverId
                             }
                         }
 
@@ -696,7 +739,8 @@ final class SyncManager: ObservableObject {
                                 predicate: #Predicate { $0.id == localCardId }
                             )
                             if let card = try? context.fetch(cardDescriptor).first {
-                                serverCreditCardId = card.serverId ?? card.id
+                                // Só usar serverId se existir, nunca enviar ID local
+                                serverCreditCardId = card.serverId
                             }
                         }
 
