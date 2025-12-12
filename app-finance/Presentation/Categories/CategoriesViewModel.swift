@@ -43,7 +43,7 @@ class CategoriesViewModel: ObservableObject {
 
         // 2. Seed default categories if empty
         if categories.isEmpty {
-            categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
+            categoryRepo.seedDefaultCategoriesIfNeededSync(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
         }
 

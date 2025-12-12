@@ -193,9 +193,26 @@ final class CategoryRepository: ObservableObject {
 
     // MARK: - Seed Default Categories
 
-    func seedDefaultCategoriesIfNeeded(userId: String) {
+    /// Cria categorias padrão apenas se não existirem localmente E no servidor (versão async)
+    func seedDefaultCategoriesIfNeededAsync(userId: String) async {
         let existing = getCategories(userId: userId)
-        guard existing.isEmpty else { return }
+        guard existing.isEmpty else {
+            print("ℹ️ [Repo] Categorias já existem localmente, não criando padrões")
+            return
+        }
+
+        // Verificar se o servidor já tem categorias para este usuário
+        do {
+            let serverCategories = try await CategoriesAPI.shared.getAll()
+            if !serverCategories.isEmpty {
+                print("ℹ️ [Repo] Servidor já tem \(serverCategories.count) categorias, não criando padrões locais")
+                // O sync vai baixar as categorias do servidor
+                return
+            }
+        } catch {
+            print("⚠️ [Repo] Não foi possível verificar servidor, criando padrões locais: \(error)")
+            // Se não conseguir verificar o servidor, criar padrões locais
+        }
 
         let defaults: [(name: String, color: String, icon: String)] = [
             ("Alimentação", "#FF6B6B", "fork.knife"),
@@ -222,7 +239,44 @@ final class CategoryRepository: ObservableObject {
 
         do {
             try context.save()
-            print("💾 [Repo] Categorias padrão criadas (local only)")
+            print("💾 [Repo] Categorias padrão criadas (serão sincronizadas)")
+        } catch {
+            print("❌ [Repo] Erro ao criar categorias padrão: \(error)")
+        }
+    }
+
+    /// Versão síncrona para compatibilidade (não verifica servidor)
+    func seedDefaultCategoriesIfNeededSync(userId: String) {
+        let existing = getCategories(userId: userId)
+        guard existing.isEmpty else { return }
+
+        // Versão síncrona não verifica servidor - usar apenas quando necessário
+        let defaults: [(name: String, color: String, icon: String)] = [
+            ("Alimentação", "#FF6B6B", "fork.knife"),
+            ("Transporte", "#4ECDC4", "car.fill"),
+            ("Moradia", "#45B7D1", "house.fill"),
+            ("Saúde", "#96CEB4", "heart.fill"),
+            ("Educação", "#DDA0DD", "book.fill"),
+            ("Lazer", "#FFD93D", "gamecontroller.fill"),
+            ("Compras", "#FF8C42", "bag.fill"),
+            ("Outros", "#95A5A6", "ellipsis.circle.fill")
+        ]
+
+        for (index, (name, color, icon)) in defaults.enumerated() {
+            let category = Category(
+                userId: userId,
+                name: name,
+                colorHex: color,
+                iconName: icon,
+                displayOrder: index,
+                syncStatus: .pending
+            )
+            context.insert(category)
+        }
+
+        do {
+            try context.save()
+            print("💾 [Repo] Categorias padrão criadas (sync)")
         } catch {
             print("❌ [Repo] Erro ao criar categorias padrão: \(error)")
         }

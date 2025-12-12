@@ -227,14 +227,14 @@ final class SyncManager: ObservableObject {
     private func syncCategories() async throws {
         let context = SwiftDataStack.shared.context
 
-        // 0. Corrigir categorias que existem localmente mas não foram sincronizadas
+        // 1. PULL FIRST - Baixar dados do servidor antes de enviar
+        try await pullCategories(context: context)
+
+        // 2. Corrigir categorias que existem localmente mas não foram sincronizadas
         try await fixUnsyncedCategories(context: context)
 
-        // 1. Push local changes to server
+        // 3. Push local changes to server
         try await pushPendingCategories(context: context)
-
-        // 2. Pull server changes
-        try await pullCategories(context: context)
 
         try context.save()
 
@@ -321,18 +321,43 @@ final class SyncManager: ObservableObject {
         let localCategories = try context.fetch(descriptor)
         let localByServerId = Dictionary(grouping: localCategories.filter { $0.serverId != nil }, by: { $0.serverId! })
 
+        let dateFormatter = ISO8601DateFormatter()
+        dateFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+
         for serverCat in serverCategories {
+            // Parse server updatedAt
+            let serverUpdatedAt: Date? = serverCat.updatedAt.flatMap { dateFormatter.date(from: $0) }
+
             if let existing = localByServerId[serverCat.id]?.first {
-                // Atualizar se local não tiver mudanças pendentes
+                // Comparar timestamps para resolver conflito
                 if existing.syncStatusEnum == .synced {
+                    // Sempre atualiza se synced (servidor é fonte da verdade)
                     existing.name = serverCat.name
                     existing.colorHex = serverCat.colorHex
                     existing.iconName = serverCat.iconName
                     existing.isActive = serverCat.isActive
-                    // Atualizar displayOrder do servidor se existir
                     if let serverOrder = serverCat.displayOrder {
                         existing.displayOrder = serverOrder
                     }
+                    if let serverDate = serverUpdatedAt {
+                        existing.updatedAt = serverDate
+                    }
+                } else if existing.syncStatusEnum == .pending {
+                    // Local tem mudanças pendentes - comparar timestamps
+                    if let serverDate = serverUpdatedAt, serverDate > existing.updatedAt {
+                        // Servidor é mais novo - descartar mudanças locais
+                        existing.name = serverCat.name
+                        existing.colorHex = serverCat.colorHex
+                        existing.iconName = serverCat.iconName
+                        existing.isActive = serverCat.isActive
+                        if let serverOrder = serverCat.displayOrder {
+                            existing.displayOrder = serverOrder
+                        }
+                        existing.updatedAt = serverDate
+                        existing.syncStatusEnum = .synced
+                        print("⚠️ [Sync] Categoria atualizada pelo servidor (mais recente): \(serverCat.name)")
+                    }
+                    // Se local é mais novo, mantém pending para push
                 }
             } else {
                 // Verificar se existe categoria local com mesmo nome (merge com default)
@@ -346,6 +371,9 @@ final class SyncManager: ObservableObject {
                     if let serverOrder = serverCat.displayOrder {
                         localDefault.displayOrder = serverOrder
                     }
+                    if let serverDate = serverUpdatedAt {
+                        localDefault.updatedAt = serverDate
+                    }
                     print("🔗 [Sync] Categoria mesclada: \(serverCat.name)")
                 } else {
                     // Criar nova categoria localmente
@@ -358,6 +386,8 @@ final class SyncManager: ObservableObject {
                         iconName: serverCat.iconName,
                         isActive: serverCat.isActive,
                         displayOrder: serverCat.displayOrder ?? (maxOrder + 1),
+                        createdAt: Date(),
+                        updatedAt: serverUpdatedAt ?? Date(),
                         syncStatus: .synced
                     )
                     context.insert(newCategory)
@@ -383,14 +413,14 @@ final class SyncManager: ObservableObject {
     private func syncCreditCards() async throws {
         let context = SwiftDataStack.shared.context
 
-        // 0. Corrigir cartões que existem localmente mas não foram sincronizados
+        // 1. PULL FIRST - Baixar dados do servidor antes de enviar
+        try await pullCreditCards(context: context)
+
+        // 2. Corrigir cartões que existem localmente mas não foram sincronizados
         try await fixUnsyncedCreditCards(context: context)
 
-        // 1. Push local changes to server
+        // 3. Push local changes to server
         try await pushPendingCreditCards(context: context)
-
-        // 2. Pull server changes
-        try await pullCreditCards(context: context)
 
         try context.save()
 
@@ -526,11 +556,11 @@ final class SyncManager: ObservableObject {
     private func syncFixedBills() async throws {
         let context = SwiftDataStack.shared.context
 
-        // 1. Push local changes to server
-        try await pushPendingFixedBills(context: context)
-
-        // 2. Pull server changes
+        // 1. PULL FIRST - Baixar dados do servidor antes de enviar
         try await pullFixedBills(context: context)
+
+        // 2. Push local changes to server
+        try await pushPendingFixedBills(context: context)
 
         try context.save()
 
@@ -667,11 +697,11 @@ final class SyncManager: ObservableObject {
     private func syncTransactions() async throws {
         let context = SwiftDataStack.shared.context
 
-        // 1. Push local changes
-        try await pushPendingTransactions(context: context)
-
-        // 2. Pull server changes (todos)
+        // 1. PULL FIRST - Baixar dados do servidor antes de enviar
         try await pullTransactions(context: context)
+
+        // 2. Push local changes
+        try await pushPendingTransactions(context: context)
 
         try context.save()
 

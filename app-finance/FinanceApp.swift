@@ -3558,7 +3558,7 @@ struct EditInstallmentSheet: View {
 
         // Seed default categories if empty
         if categories.isEmpty {
-            categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
+            categoryRepo.seedDefaultCategoriesIfNeededSync(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
                 .filter { $0.isActive && $0.syncStatusEnum != .pendingDelete }
                 .sorted { $0.displayOrder < $1.displayOrder }
@@ -4377,7 +4377,7 @@ struct AddExistingInstallmentSheet: View {
 
         // Seed default categories if empty
         if categories.isEmpty {
-            categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
+            categoryRepo.seedDefaultCategoriesIfNeededSync(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
                 .filter { $0.isActive && $0.syncStatusEnum != .pendingDelete }
                 .sorted { $0.displayOrder < $1.displayOrder }

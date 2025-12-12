@@ -539,7 +539,7 @@ class MonthlySummaryViewModel: ObservableObject {
 
         // Seed default categories se necessário
         if categories.isEmpty {
-            categoryRepo.seedDefaultCategoriesIfNeeded(userId: userId)
+            categoryRepo.seedDefaultCategoriesIfNeededSync(userId: userId)
             categories = categoryRepo.getCategories(userId: userId)
         }
     }
