@@ -271,15 +271,29 @@ final class SyncManager: ObservableObject {
                 switch category.syncStatusEnum {
                 case .pending:
                     if category.serverId == nil {
-                        // Criar no servidor
-                        let response = try await categoriesAPI.create(
-                            name: category.name,
-                            colorHex: category.colorHex,
-                            iconName: category.iconName,
-                            displayOrder: category.displayOrder
-                        )
-                        category.markAsSynced(serverId: response.id)
-                        print("📤 [Sync] Categoria criada: \(category.name)")
+                        // Tentar criar no servidor
+                        do {
+                            let response = try await categoriesAPI.create(
+                                name: category.name,
+                                colorHex: category.colorHex,
+                                iconName: category.iconName,
+                                displayOrder: category.displayOrder
+                            )
+                            category.markAsSynced(serverId: response.id)
+                            print("📤 [Sync] Categoria criada: \(category.name)")
+                        } catch {
+                            // Se falhou (possivelmente duplicata), tentar buscar no servidor
+                            let serverCategories = try await categoriesAPI.getAll()
+                            let normalizedName = category.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                            if let existing = serverCategories.first(where: {
+                                $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedName
+                            }) {
+                                category.markAsSynced(serverId: existing.id)
+                                print("🔗 [Sync] Categoria vinculada ao servidor: \(category.name)")
+                            } else {
+                                throw error
+                            }
+                        }
                     } else {
                         // Atualizar no servidor
                         _ = try await categoriesAPI.update(
@@ -361,7 +375,11 @@ final class SyncManager: ObservableObject {
                 }
             } else {
                 // Verificar se existe categoria local com mesmo nome (merge com default)
-                if let localDefault = localCategories.first(where: { $0.name == serverCat.name && $0.serverId == nil }) {
+                // Usar comparação case-insensitive e trim para maior robustez
+                let serverNameNormalized = serverCat.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                if let localDefault = localCategories.first(where: {
+                    $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == serverNameNormalized && $0.serverId == nil
+                }) {
                     // Fazer merge: atualizar a categoria local com serverId
                     localDefault.serverId = serverCat.id
                     localDefault.colorHex = serverCat.colorHex
