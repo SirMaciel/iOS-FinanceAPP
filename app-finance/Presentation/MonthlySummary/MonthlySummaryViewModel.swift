@@ -393,9 +393,11 @@ class MonthlySummaryViewModel: ObservableObject {
 
             // Buscar o dia de fechamento do cartão associado
             var closingDay = 27 // Default: dia 27 caso não tenha cartão
+            var cardName: String? = nil
             if let cardId = transaction.creditCardId,
                let card = creditCardRepo.getCreditCard(id: cardId) {
                 closingDay = card.closingDay
+                cardName = card.cardName
                 print("🔍 [DEBUG] Cartão encontrado: \(card.cardName), fechamento dia \(closingDay)")
             } else {
                 print("⚠️ [DEBUG] Cartão NÃO encontrado! creditCardId: \(transaction.creditCardId ?? "nil")")
@@ -442,6 +444,7 @@ class MonthlySummaryViewModel: ObservableObject {
                     currentInstallment: installmentNumber,
                     totalInstallments: totalInstallments,
                     creditCardId: transaction.creditCardId,
+                    creditCardName: cardName,
                     categoryName: category?.name,
                     categoryColor: category?.color ?? AppColors.textSecondary,
                     categoryIcon: category?.iconName ?? "tag.fill",
@@ -761,6 +764,7 @@ struct InstallmentItemViewModel: Identifiable {
     let currentInstallment: Int
     let totalInstallments: Int
     let creditCardId: String?
+    let creditCardName: String?    // Nome do cartão
     let categoryName: String?
     let categoryColor: Color
     let categoryIcon: String
