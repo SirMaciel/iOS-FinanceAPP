@@ -575,76 +575,102 @@ struct InstallmentSummaryRow: View {
 
     private var formattedPurchaseDate: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
+        formatter.dateFormat = "dd MMM yy"
+        formatter.locale = Locale(identifier: "pt_BR")
         return formatter.string(from: installment.purchaseDate)
     }
 
+    private var progressPercentage: Double {
+        Double(installment.currentInstallment) / Double(installment.totalInstallments)
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            // Icon
+        HStack(spacing: 14) {
+            // Category Icon with progress ring
             ZStack {
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(installment.categoryColor.opacity(0.15))
-                    .frame(width: 44, height: 44)
+                // Background circle
+                Circle()
+                    .fill(installment.categoryColor.opacity(0.12))
+                    .frame(width: 48, height: 48)
+
+                // Progress ring
+                Circle()
+                    .stroke(installment.categoryColor.opacity(0.2), lineWidth: 3)
+                    .frame(width: 48, height: 48)
+
+                Circle()
+                    .trim(from: 0, to: progressPercentage)
+                    .stroke(installment.categoryColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 48, height: 48)
+                    .rotationEffect(.degrees(-90))
 
                 Image(systemName: installment.categoryIcon)
-                    .font(.system(size: 18))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(installment.categoryColor)
             }
 
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(installment.description)
-                        .font(.subheadline)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppColors.textPrimary)
-                        .lineLimit(1)
+            // Content
+            VStack(alignment: .leading, spacing: 5) {
+                // Title
+                Text(installment.description)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(AppColors.textPrimary)
+                    .lineLimit(1)
 
-                    HStack(spacing: 4) {
-                        Image(systemName: "creditcard")
-                            .font(.caption2)
-                        Text("\(installment.currentInstallment)/\(installment.totalInstallments)")
-                            .font(.caption2)
+                // Info row
+                HStack(spacing: 8) {
+                    // Installment badge
+                    HStack(spacing: 3) {
+                        Text("\(installment.currentInstallment)")
                             .fontWeight(.bold)
+                        Text("/")
+                            .foregroundColor(AppColors.accentBlue.opacity(0.6))
+                        Text("\(installment.totalInstallments)")
                     }
-                    .foregroundColor(.blue)
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 3)
-                    .background(Color.blue.opacity(0.15))
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppColors.accentBlue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppColors.accentBlue.opacity(0.1))
                     .cornerRadius(6)
+
+                    // Date
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text(formattedPurchaseDate)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textTertiary)
                 }
 
-                HStack(spacing: 6) {
-                    Text(installment.categoryName ?? "Sem categoria")
-                        .font(.caption)
-                        .foregroundColor(AppColors.textSecondary)
-
-                    Circle()
-                        .fill(AppColors.textTertiary)
-                        .frame(width: 3, height: 3)
-
-                    Text(formattedPurchaseDate)
-                        .font(.caption)
-                        .foregroundColor(AppColors.textTertiary)
+                // Card name
+                if let cardName = installment.creditCardName {
+                    HStack(spacing: 4) {
+                        Image(systemName: "creditcard.fill")
+                            .font(.system(size: 9))
+                        Text(cardName)
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            // Amount
-            VStack(alignment: .trailing, spacing: 2) {
+            // Amount section
+            VStack(alignment: .trailing, spacing: 3) {
                 Text(CurrencyUtils.format(installment.installmentAmount))
-                    .font(.subheadline)
-                    .fontWeight(.bold)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundColor(AppColors.textPrimary)
 
-                Text("Total: \(CurrencyUtils.format(installment.totalAmount))")
-                    .font(.caption2)
-                    .foregroundColor(AppColors.textSecondary)
+                Text(CurrencyUtils.format(installment.totalAmount))
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textTertiary)
             }
         }
-        .padding(.vertical, 8)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
     }
 }
@@ -730,11 +756,13 @@ struct InstallmentsListView: View {
         for transaction in validInstallments {
             guard let totalInstallments = transaction.installments else { continue }
 
-            // Buscar o dia de fechamento do cartão associado
+            // Buscar o cartão associado
             var closingDay = 1
+            var cardName: String? = nil
             if let cardId = transaction.creditCardId,
                let card = creditCardRepo.getCreditCard(id: cardId) {
                 closingDay = card.closingDay
+                cardName = card.cardName
             }
 
             // Calcular o primeiro mês de vencimento baseado na data da compra e fechamento
@@ -762,6 +790,7 @@ struct InstallmentsListView: View {
                     currentInstallment: installmentNumber,
                     totalInstallments: totalInstallments,
                     creditCardId: transaction.creditCardId,
+                    creditCardName: cardName,
                     categoryName: category?.name,
                     categoryColor: category?.color ?? AppColors.textSecondary,
                     categoryIcon: category?.iconName ?? "tag.fill",

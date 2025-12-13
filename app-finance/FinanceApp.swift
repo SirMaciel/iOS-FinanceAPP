@@ -2402,88 +2402,112 @@ struct InstallmentRowCard: View {
 
     private var formattedPurchaseDate: String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "dd/MM/yyyy"
+        formatter.dateFormat = "dd MMM yy"
+        formatter.locale = Locale(identifier: "pt_BR")
         return formatter.string(from: item.purchaseDate)
     }
 
+    private var progressPercentage: Double {
+        Double(item.currentInstallment) / Double(item.totalInstallments)
+    }
+
     var body: some View {
-        HStack(spacing: 12) {
-            // Category Icon
+        HStack(spacing: 14) {
+            // Category Icon with progress ring
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(item.categoryColor.opacity(0.15))
-                    .frame(width: 44, height: 44)
+                // Background circle
+                Circle()
+                    .fill(item.categoryColor.opacity(0.12))
+                    .frame(width: 48, height: 48)
+
+                // Progress ring
+                Circle()
+                    .stroke(item.categoryColor.opacity(0.2), lineWidth: 3)
+                    .frame(width: 48, height: 48)
+
+                Circle()
+                    .trim(from: 0, to: progressPercentage)
+                    .stroke(item.categoryColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                    .frame(width: 48, height: 48)
+                    .rotationEffect(.degrees(-90))
 
                 Image(systemName: item.categoryIcon)
-                    .font(.system(size: 16))
+                    .font(.system(size: 18, weight: .medium))
                     .foregroundColor(item.categoryColor)
             }
 
             // Content
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 5) {
+                // Title
                 Text(item.description)
-                    .font(.system(size: 16, weight: .semibold))
+                    .font(.system(size: 15, weight: .semibold))
                     .foregroundColor(AppColors.textPrimary)
                     .lineLimit(1)
 
-                HStack(spacing: 6) {
-                    // Installment info
-                    Text("\(item.currentInstallment)/\(item.totalInstallments)")
-                        .font(.caption)
-                        .fontWeight(.semibold)
-                        .foregroundColor(AppColors.accentBlue)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(AppColors.accentBlue.opacity(0.15))
-                        .cornerRadius(6)
-
-                    // Purchase date
-                    Circle()
-                        .fill(AppColors.textTertiary)
-                        .frame(width: 4, height: 4)
-
-                    Text(formattedPurchaseDate)
-                        .font(.caption)
-                        .foregroundColor(AppColors.textTertiary)
-
-                    // Card name with separator
-                    if let card = card {
-                        Circle()
-                            .fill(AppColors.textTertiary)
-                            .frame(width: 4, height: 4)
-
-                        Text(card.cardName)
-                            .font(.caption)
-                            .foregroundColor(AppColors.textTertiary)
+                // Info row
+                HStack(spacing: 8) {
+                    // Installment badge
+                    HStack(spacing: 3) {
+                        Text("\(item.currentInstallment)")
+                            .fontWeight(.bold)
+                        Text("/")
+                            .foregroundColor(AppColors.accentBlue.opacity(0.6))
+                        Text("\(item.totalInstallments)")
                     }
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundColor(AppColors.accentBlue)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(AppColors.accentBlue.opacity(0.1))
+                    .cornerRadius(6)
+
+                    // Date
+                    HStack(spacing: 4) {
+                        Image(systemName: "calendar")
+                            .font(.system(size: 10))
+                        Text(formattedPurchaseDate)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textTertiary)
+                }
+
+                // Card name
+                if let card = card {
+                    HStack(spacing: 4) {
+                        Image(systemName: "creditcard.fill")
+                            .font(.system(size: 9))
+                        Text(card.cardName)
+                            .lineLimit(1)
+                    }
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textSecondary)
                 }
             }
 
-            Spacer()
+            Spacer(minLength: 8)
 
-            // Amount + chevron
-            HStack(spacing: 8) {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(CurrencyUtils.format(item.installmentAmount))
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundColor(AppColors.textPrimary)
+            // Amount section
+            VStack(alignment: .trailing, spacing: 3) {
+                Text(CurrencyUtils.format(item.installmentAmount))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(AppColors.textPrimary)
 
-                    Text("Total: \(CurrencyUtils.format(item.totalAmount))")
-                        .font(.caption2)
-                        .foregroundColor(AppColors.textSecondary)
-                }
-
-                Image(systemName: "chevron.right")
-                    .font(.caption2)
-                    .foregroundColor(AppColors.textTertiary.opacity(0.5))
+                Text(CurrencyUtils.format(item.totalAmount))
+                    .font(.system(size: 11))
+                    .foregroundColor(AppColors.textTertiary)
             }
+
+            Image(systemName: "chevron.right")
+                .font(.system(size: 12, weight: .medium))
+                .foregroundColor(AppColors.textTertiary.opacity(0.4))
         }
-        .padding(16)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
         .background(AppColors.bgSecondary)
-        .cornerRadius(16)
+        .cornerRadius(14)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(AppColors.cardBorder, lineWidth: 1)
+            RoundedRectangle(cornerRadius: 14)
+                .stroke(AppColors.cardBorder.opacity(0.5), lineWidth: 0.5)
         )
     }
 }

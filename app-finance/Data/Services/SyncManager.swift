@@ -887,6 +887,20 @@ final class SyncManager: ObservableObject {
             if let existing = localByServerId[serverTx.id]?.first {
                 // Atualizar se local não tiver mudanças pendentes
                 if existing.syncStatusEnum == .synced {
+                    // Atualizar campos principais
+                    existing.desc = serverTx.description
+                    existing.amount = Decimal(serverTx.amount)
+
+                    // Atualizar data
+                    let dateFormatter = ISO8601DateFormatter()
+                    dateFormatter.formatOptions = [.withFullDate]
+                    if let serverDate = dateFormatter.date(from: serverTx.date) {
+                        existing.date = serverDate
+                    }
+
+                    // Atualizar tipo
+                    existing.type = TransactionType(rawValue: serverTx.type) ?? .expense
+
                     // Mapear categoryId do servidor para local
                     if let serverCatId = serverTx.categoryId,
                        let localCat = catByServerId[serverCatId]?.first {
@@ -914,6 +928,8 @@ final class SyncManager: ObservableObject {
                     existing.startingInstallment = serverTx.startingInstallment
                     existing.notes = serverTx.notes
                     existing.paymentMethod = serverTx.paymentMethod
+
+                    print("🔄 [Sync] Transação atualizada do servidor: \(serverTx.description)")
                 }
             } else {
                 // Verificar duplicatas
