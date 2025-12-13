@@ -719,6 +719,7 @@ struct InstallmentsListView: View {
         let currentYear = currentMonth.year
         let currentMonthNum = currentMonth.month
         let creditCardRepo = CreditCardRepository.shared
+        let categoryRepo = CategoryRepository.shared
 
         let validInstallments = installmentTransactions.filter {
             $0.syncStatusEnum != .pendingDelete
@@ -747,7 +748,7 @@ struct InstallmentsListView: View {
 
             // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
             if installmentNumber >= 1 && installmentNumber <= totalInstallments {
-                let category = categories.first { $0.id == transaction.categoryId || $0.serverId == transaction.categoryId }
+                let category = categoryRepo.getCategory(id: transaction.categoryId ?? "")
 
                 let totalAmount = transaction.amountDouble
                 let installmentAmount = totalAmount / Double(totalInstallments)

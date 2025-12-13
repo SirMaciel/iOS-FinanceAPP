@@ -1891,11 +1891,11 @@ struct CreditCardView: View {
     ) {
         guard let transaction = cardTransactions.first(where: { $0.id == transactionId }) else { return }
 
-        // Calculate installment amount
-        let installmentAmount = totalAmount / Decimal(totalInstallments)
+        // Store the TOTAL amount (not per-installment)
+        // The per-installment amount is calculated dynamically when displaying
 
         transaction.desc = description
-        transaction.amount = installmentAmount
+        transaction.amount = totalAmount
         transaction.installments = totalInstallments
         transaction.startingInstallment = currentInstallment
         transaction.date = date

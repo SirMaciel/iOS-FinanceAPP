@@ -197,7 +197,7 @@ class AllTransactionsViewModel: ObservableObject {
 
         // Map to view models
         return filtered.map { tx in
-            let category = categories.first { $0.id == tx.categoryId || $0.serverId == tx.categoryId }
+            let category = categoryRepo.getCategory(id: tx.categoryId ?? "")
             return TransactionItemViewModel(
                 id: tx.id,
                 description: tx.desc,

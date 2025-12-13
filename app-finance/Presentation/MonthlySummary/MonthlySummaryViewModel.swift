@@ -163,7 +163,7 @@ class MonthlySummaryViewModel: ObservableObject {
         }
 
         return categoryTotals.compactMap { (catId, catTotal) -> PieCategoryData? in
-            let category = categories.first { $0.id == catId || $0.serverId == catId }
+            let category = categoryRepo.getCategory(id: catId)
             return PieCategoryData(
                 categoryId: catId,
                 name: category?.name ?? "Sem categoria",
@@ -191,7 +191,7 @@ class MonthlySummaryViewModel: ObservableObject {
 
         for tx in expenseTransactions {
             let catId = tx.categoryId ?? "uncategorized"
-            let category = categories.first { $0.id == catId || $0.serverId == catId }
+            let category = categoryRepo.getCategory(id: catId)
             let name = category?.name ?? "Sem categoria"
             let colorHex = category?.colorHex ?? "#999999"
             let iconName = category?.iconName ?? "questionmark.circle"
@@ -253,7 +253,7 @@ class MonthlySummaryViewModel: ObservableObject {
 
             // Usar o mesmo categoryId das transações para agrupar corretamente
             let catId = transaction.categoryId ?? "uncategorized"
-            let category = categories.first { $0.id == catId || $0.serverId == catId }
+            let category = categoryRepo.getCategory(id: catId)
             let name = category?.name ?? "Sem categoria"
             let colorHex = category?.colorHex ?? "#999999"
             let iconName = category?.iconName ?? "questionmark.circle"
@@ -299,7 +299,7 @@ class MonthlySummaryViewModel: ObservableObject {
             .sorted { $0.date > $1.date }
 
         return filtered.map { tx in
-            let category = categories.first { $0.id == tx.categoryId || $0.serverId == tx.categoryId }
+            let category = categoryRepo.getCategory(id: tx.categoryId ?? "")
 
             return TransactionItemViewModel(
                 id: tx.id,
@@ -427,7 +427,7 @@ class MonthlySummaryViewModel: ObservableObject {
 
             // Mostrar todas as parcelas (1 até totalInstallments), independente de quantas já foram pagas
             if installmentNumber >= 1 && installmentNumber <= totalInstallments {
-                let category = categories.first { $0.id == transaction.categoryId || $0.serverId == transaction.categoryId }
+                let category = categoryRepo.getCategory(id: transaction.categoryId ?? "")
 
                 // O amount armazenado é o valor TOTAL da compra
                 let totalAmount = transaction.amountDouble
